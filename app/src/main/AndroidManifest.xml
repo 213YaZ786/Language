@@ -39,6 +39,38 @@
             </intent-filter>
         </activity>
 
+        <!-- An app's mic (RecognizerIntent.ACTION_RECOGNIZE_SPEECH): a glass panel over the app that asked, answered as
+             Transcribro's ActionRecognizeSpeechActivity. Any app may start it; it only listens and hands the words back.
+             A turn of the screen never restarts it (Transcribro issue 85). -->
+        <activity
+            android:name=".recognize.RecognizeActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Voice.Panel"
+            android:excludeFromRecents="true"
+            android:launchMode="standard"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode">
+            <intent-filter>
+                <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- A sound shared to Voice (a voice message, a recording): its words to copy or share. Only names a sound;
+             another app's content:// is read, nothing else. -->
+        <activity
+            android:name=".share.TranscribeActivity"
+            android:exported="true"
+            android:label="Transcribe"
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="audio/*" />
+                <data android:mimeType="application/ogg" />
+            </intent-filter>
+        </activity>
+
         <!-- The phone's speech recognizer (Settings > Voice input), as Transcribro declares its own: only apps that may
              record (RECORD_AUDIO) can bind it. -->
         <service
@@ -53,6 +85,21 @@
             <meta-data
                 android:name="android.speech"
                 android:resource="@xml/recognition_service" />
+        </service>
+
+        <!-- The voice keyboard (Transcribro's VoiceInput service): an input method that only dictates. Only the system
+             may bind it (BIND_INPUT_METHOD); it listens only while its panel is up. -->
+        <service
+            android:name=".ime.VoiceInputService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/input_method" />
         </service>
 
         <!-- After an update the app installed itself: a notification to open it again. -->

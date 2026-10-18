@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adapted from Transcribro's res/xml/input_method.xml (settings activity, one auxiliary "voice" subtype)
+     https://github.com/soupslurpr/Transcribro/blob/main/app/src/main/res/xml/input_method.xml
+     Its subtype is fixed to en-US; this one names no language (no languageTag, no imeSubtypeLocale): AOSP's
+     InputMethodSubtype.getLanguageTag "returns an empty string when no Language Tag is specified", so the system lists
+     the voice keyboard whatever the phone's language, and a label stands in for the locale name the picker would
+     otherwise show (getDisplayName, subtypeNameResId)
+     https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/view/inputmethod/InputMethodSubtype.java
+     Auxiliary: one-shot, the previous keyboard comes back when it is done (isAuxiliary's documented intent). -->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.yaz.voice.MainActivity">
+    <subtype
+        android:label="@string/ime_subtype"
+        android:imeSubtypeMode="voice"
+        android:isAuxiliary="true" />
+</input-method>

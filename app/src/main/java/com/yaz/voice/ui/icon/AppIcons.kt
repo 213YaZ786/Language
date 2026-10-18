@@ -56,6 +56,44 @@ object AppIcons {
     /** A step not done yet or a failure: action/warning. */
     val Warning: ImageVector by lazy { build("Warning", "M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z") }
 
+    // The voice keyboard's keys (Transcribro's VoiceInput uses the same Material icons, the directional ones auto-mirrored).
+
+    /** Undo: content/undo. */
+    val Undo: ImageVector by lazy { build("Undo", "M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z") }
+
+    /** Redo: content/redo. */
+    val Redo: ImageVector by lazy { build("Redo", "M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z") }
+
+    /** Backspace: content/backspace. */
+    val Backspace: ImageVector by lazy { build("Backspace", "M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z") }
+
+    /** Send: content/send. */
+    val Send: ImageVector by lazy { build("Send", "M2.01 21L23 12 2.01 3 2 10l15 2-15 2z") }
+
+    /** Done (the action key): action/done. */
+    val Done: ImageVector by lazy { build("Done", "M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z") }
+
+    /** Go (the action key): action/arrow_right_alt. */
+    val ArrowRightAlt: ImageVector by lazy { build("ArrowRightAlt", "M16.01 11H4v2h12.01v3L20 12l-3.99-4z") }
+
+    /** Next (the action key): navigation/chevron_right. */
+    val NavigateNext: ImageVector by lazy { build("NavigateNext", "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z") }
+
+    /** Previous (the action key): navigation/chevron_left. */
+    val NavigateBefore: ImageVector by lazy { build("NavigateBefore", "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z") }
+
+    /** Return: hardware/keyboard_return. */
+    val KeyboardReturn: ImageVector by lazy { build("KeyboardReturn", "M19 7v4H5.83l3.58-3.59L8 6l-6 6 6 6 1.41-1.41L5.83 13H21V7z") }
+
+    /** A field with no action: content/block. */
+    val Block: ImageVector by lazy { build("Block", "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z") }
+
+    /** Clear the text around the selection: content/delete_sweep. */
+    val DeleteSweep: ImageVector by lazy { build("DeleteSweep", "M15 16h4v2h-4zm0-8h7v2h-7zm0 4h6v2h-6zM3 18c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V8H3v10zM14 5h-3l-1-1H6L5 5H2v2h12z") }
+
+    /** Icons that point along the line of text, mirrored in right to left languages (Compose's AutoMirrored icons). */
+    private val mirrored = setOf("ArrowBack", "Undo", "Redo", "Backspace", "Send", "ArrowRightAlt", "NavigateNext", "NavigateBefore", "KeyboardReturn")
+
     // Calculator's build(): a 24dp vector from one path, ArrowBack mirrored in right to left languages.
     private fun build(name: String, pathData: String): ImageVector =
         ImageVector.Builder(
@@ -64,7 +102,7 @@ object AppIcons {
             defaultHeight = 24.dp,
             viewportWidth = 24f,
             viewportHeight = 24f,
-            autoMirror = name == "ArrowBack"
+            autoMirror = name in mirrored
         ).apply {
             addPath(
                 pathData = PathParser().parsePathString(pathData).toNodes(),

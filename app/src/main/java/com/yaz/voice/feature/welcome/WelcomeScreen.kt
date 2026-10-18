@@ -42,6 +42,8 @@ import com.yaz.voice.core.VoiceSpeech
 import com.yaz.voice.core.update.Updates
 import com.yaz.voice.core.voice.SpeechModel
 import com.yaz.voice.feature.common.isPhoneVoiceInput
+import com.yaz.voice.feature.common.isVoiceKeyboardEnabled
+import com.yaz.voice.feature.common.openKeyboardSettings
 import com.yaz.voice.feature.common.openVoiceInputSettings
 import com.yaz.voice.feature.common.rememberMicrophone
 import com.yaz.voice.ui.component.BoldButton
@@ -58,7 +60,7 @@ import org.koin.compose.koinInject
  * https://github.com/213YaZ786/Calculator/blob/main/app/src/main/java/com/yaz/calculator/feature/main/WelcomeScreen.kt
  * with SMS's speech step (the model for this phone chosen, fetched on a tap, its progress shown)
  * https://github.com/213YaZ786/SMS/blob/main/app/src/main/java/com/yaz/sms/feature/main/WelcomeScreen.kt
- * Steps: the microphone, the engine, Voice as the phone's voice input, automatic updates.
+ * Steps: the microphone, the engine, Voice as the phone's voice input, the voice keyboard (optional), automatic updates.
  */
 @Composable
 fun WelcomeScreen(onStart: () -> Unit) {
@@ -77,6 +79,7 @@ fun WelcomeScreen(onStart: () -> Unit) {
     }
     val metered = remember { model.metered() }
     val voiceInput = remember(checks) { isPhoneVoiceInput(context) }
+    val voiceKeyboard = remember(checks) { isVoiceKeyboardEnabled(context) }
     val canInstall = remember(checks) { Updates.canInstall(context) }
     val notifying = remember(checks) {
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -128,6 +131,10 @@ fun WelcomeScreen(onStart: () -> Unit) {
         Spacer(Modifier.height(16.dp))
         WelcomeZone(AppIcons.Keyboard, "Voice input", done = voiceInput) {
             if (!voiceInput) BoldButton(onClick = { haptics.tick(); openVoiceInputSettings(context) }) { Text("Choose Voice") }
+        }
+        Spacer(Modifier.height(16.dp))
+        WelcomeZone(AppIcons.Keyboard, "Voice keyboard (optional)", done = voiceKeyboard) {
+            if (!voiceKeyboard) BoldButton(onClick = { haptics.tick(); openKeyboardSettings(context) }) { Text("Activate") }
         }
         Spacer(Modifier.height(16.dp))
         WelcomeZone(AppIcons.Update, "Automatic updates", done = canInstall && notifying) {

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Voice</string>
+    <!-- The voice keyboard's name in the keyboard picker (its subtype has no language to name it). -->
+    <string name="ime_subtype">Voice typing</string>
 </resources>

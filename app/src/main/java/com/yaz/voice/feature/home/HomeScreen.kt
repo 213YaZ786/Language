@@ -58,6 +58,8 @@ import com.yaz.voice.core.VoiceSpeech
 import com.yaz.voice.core.voice.SpeechModel
 import com.yaz.voice.data.settings.SettingsStore
 import com.yaz.voice.feature.common.isPhoneVoiceInput
+import com.yaz.voice.feature.common.isVoiceKeyboardEnabled
+import com.yaz.voice.feature.common.openKeyboardSettings
 import com.yaz.voice.feature.common.openVoiceInputSettings
 import com.yaz.voice.feature.common.rememberMicrophone
 import com.yaz.voice.navigation.LocalReadableInset
@@ -103,6 +105,7 @@ fun HomeScreen(onSettings: () -> Unit, viewModel: HomeViewModel = koinViewModel(
         onPauseOrDispose { }
     }
     val voiceInput = remember(checks) { isPhoneVoiceInput(context) }
+    val voiceKeyboard = remember(checks) { isVoiceKeyboardEnabled(context) }
 
     // Leaving the screen ends listening and drops what is held.
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.stop(false) }
@@ -159,6 +162,14 @@ fun HomeScreen(onSettings: () -> Unit, viewModel: HomeViewModel = koinViewModel(
                         ok = voiceInput,
                         action = "Choose",
                         onClick = { haptics.tick(); openVoiceInputSettings(context) }
+                    )
+                    StatusRow(
+                        icon = AppIcons.Keyboard,
+                        title = "Voice keyboard",
+                        summary = if (voiceKeyboard) "Turned on" else "Not turned on",
+                        ok = voiceKeyboard,
+                        action = "Activate",
+                        onClick = { haptics.tick(); openKeyboardSettings(context) }
                     )
                 }
             }

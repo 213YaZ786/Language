@@ -32,6 +32,47 @@ class RecognizerTestActivity : Activity() {
         super.onCreate(savedInstanceState)
         out = File(filesDir, "recognize-test.txt")
         note("start")
+        // --ez field true: a plain text field (multi-line with --ez multi true) for the voice keyboard, its text
+        // written to the log on every change, as an EditText with a TextWatcher
+        // https://developer.android.com/reference/android/widget/EditText
+        if (intent.getBooleanExtra("field", false)) {
+            val field = android.widget.EditText(this).apply {
+                hint = "Type here"
+                inputType = if (intent.getBooleanExtra("multi", false)) {
+                    android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                } else {
+                    android.text.InputType.TYPE_CLASS_TEXT
+                }
+                if (intent.getBooleanExtra("password", false)) {
+                    inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                }
+                imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEND
+                intent.getStringExtra("text")?.let { setText(it); setSelection(it.length) }
+                setBackgroundColor(0xFFFFFFFF.toInt())
+                setTextColor(0xFF000000.toInt())
+                addTextChangedListener(object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+                    override fun afterTextChanged(s: android.text.Editable?) = note("field [$s]")
+                })
+                setOnEditorActionListener { _, action, _ -> note("action $action"); true }
+            }
+            window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+            setContentView(field)
+            field.requestFocus()
+            return
+        }
+        // --ez panel true: the RECOGNIZE_SPEECH panel opened for a result, as an app's mic button does
+        // https://developer.android.com/reference/android/speech/RecognizerIntent#ACTION_RECOGNIZE_SPEECH
+        if (intent.getBooleanExtra("panel", false)) {
+            val open = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).setPackage(packageName)
+                .putExtra(RecognizerIntent.EXTRA_PROMPT, "Say something")
+            intent.getStringExtra("wav")?.let { open.putExtra("test_wav", it) }
+            intent.getStringExtra("lang")?.let { open.putExtra(RecognizerIntent.EXTRA_LANGUAGE, it) }
+            @Suppress("DEPRECATION")
+            startActivityForResult(open, 1)
+            return
+        }
         val made = SpeechRecognizer.createSpeechRecognizer(this, ComponentName(this, VoiceRecognitionService::class.java))
         recognizer = made
         made.setRecognitionListener(listener)
@@ -93,6 +134,16 @@ class RecognizerTestActivity : Activity() {
         override fun onLanguageDetection(results: Bundle) =
             note("language ${results.getString(SpeechRecognizer.DETECTED_LANGUAGE)}")
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
+    }
+
+    // The panel's answer: RecognizerIntent.EXTRA_RESULTS and EXTRA_CONFIDENCE_SCORES
+    // https://developer.android.com/reference/android/speech/RecognizerIntent#EXTRA_RESULTS
+    @Deprecated("startActivityForResult is what apps calling RECOGNIZE_SPEECH use")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        note("panel result=$resultCode ${data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)} " +
+            "${data?.getFloatArrayExtra(RecognizerIntent.EXTRA_CONFIDENCE_SCORES)?.toList()}")
+        finish()
     }
 
     override fun onDestroy() {

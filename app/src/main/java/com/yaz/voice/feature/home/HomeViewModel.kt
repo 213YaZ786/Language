@@ -34,6 +34,19 @@ data class Heard(
 }
 
 /**
+ * What a dictation that ended without words, or could not run, tells the user (moved out of HomeViewModel unchanged
+ * so the RECOGNIZE_SPEECH panel says the same); one line per way Android's recognizers end without a result
+ * https://developer.android.com/reference/android/speech/SpeechRecognizer#constants_1
+ */
+fun noteFor(why: Dictation.Why): String? = when (why) {
+    Dictation.Why.NO_SPEECH -> "Nothing heard"
+    Dictation.Why.NO_MICROPHONE_RIGHT -> "The microphone is not allowed"
+    Dictation.Why.UNAVAILABLE -> "This engine cannot run here"
+    Dictation.Why.FAILED -> "Could not listen"
+    Dictation.Why.USER, Dictation.Why.SILENCE -> null
+}
+
+/**
  * The dictation of the try zone. It holds the voice kit's Dictation and follows the pattern of Keyboard's
  * DictationController (a fork of https://github.com/HeliBorg/HeliBoard, app/src/main/java/helium314/keyboard/latin/dictation/
  * DictationController.kt): the engine is chosen when listening starts, partial words replace each other, committed
@@ -60,15 +73,6 @@ class HomeViewModel(context: Context, private val speech: VoiceSpeech) : ViewMod
         // Android's onRmsChanged passed on by the kit
         // https://developer.android.com/reference/android/speech/RecognitionListener#onRmsChanged(float)
         override fun level(rmsDb: Float) = _heard.update { if (it.phase == Phase.LISTENING) it.copy(level = rmsDb) else it }
-    }
-
-    /** What a dictation that ended without words, or could not run, tells the user. */
-    private fun noteFor(why: Dictation.Why): String? = when (why) {
-        Dictation.Why.NO_SPEECH -> "Nothing heard"
-        Dictation.Why.NO_MICROPHONE_RIGHT -> "The microphone is not allowed"
-        Dictation.Why.UNAVAILABLE -> "This engine cannot run here"
-        Dictation.Why.FAILED -> "Could not listen"
-        Dictation.Why.USER, Dictation.Why.SILENCE -> null
     }
 
     /** Starts listening with the engine that is ready; [noEngine] is called when none is, to lead to the settings. */

@@ -132,8 +132,7 @@ class VoiceRecognitionService : RecognitionService() {
         private var over = false
 
         suspend fun begin() {
-            val asked = intent.getStringExtra(RecognizerIntent.EXTRA_LANGUAGE)?.let { Locale.forLanguageTag(it) }
-                ?.takeIf { it.language.isNotEmpty() }
+            val asked = Extras.language(intent)
             // No language named and detection asked: whisper finds it from the sound (an empty code is "auto")
             val language = asked ?: if (detection) Locale.ROOT else speech.language()
             val handed = streamOf(intent)
@@ -152,8 +151,8 @@ class VoiceRecognitionService : RecognitionService() {
             val started = dictation.start(
                 engine, language, speech.model.file, this,
                 source = source,
-                silenceMs = silence(intent),
-                prompt = prompt(intent),
+                silenceMs = Extras.silence(intent),
+                prompt = Extras.prompt(intent),
             )
             if (!started) fail(SpeechRecognizer.ERROR_RECOGNIZER_BUSY)
         }
@@ -266,19 +265,6 @@ class VoiceRecognitionService : RecognitionService() {
             }
             return Handed(StreamSource(fd, rate, channels))
         }
-
-        /** The silence that ends listening, as the app asks (half a second to ten), else the kit's three seconds. */
-        fun silence(intent: Intent): Long {
-            val asked = intent.extras?.get(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS)
-            val ms = (asked as? Number)?.toLong() ?: return Dictation.SILENCE_MS
-            return ms.coerceIn(500L, 10_000L)
-        }
-
-        /** The words the app expects (EXTRA_BIASING_STRINGS), given to whisper as its prompt, 300 characters at most. */
-        fun prompt(intent: Intent): String? =
-            intent.getStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS)
-                ?.map { it.trim() }?.filter { it.isNotEmpty() }?.distinct()
-                ?.joinToString(", ")?.take(300)?.takeIf { it.isNotEmpty() }
 
         fun bundle(text: String) = Bundle().apply {
             putStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION, arrayListOf(text))

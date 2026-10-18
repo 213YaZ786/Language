@@ -77,6 +77,29 @@ fun isPhoneVoiceInput(context: Context): Boolean = runCatching {
 }.getOrDefault(false)
 
 /**
+ * Whether Voice's voice keyboard is turned on in the phone's keyboard list. Ported from Transcribro's StartScreen
+ * isMyInputMethodEnabled
+ * https://github.com/soupslurpr/Transcribro/blob/main/app/src/main/kotlin/dev/soupslurpr/transcribro/ui/start/StartScreen.kt
+ * (InputMethodManager.enabledInputMethodList holds an input method of this package).
+ */
+fun isVoiceKeyboardEnabled(context: Context): Boolean = runCatching {
+    context.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+        .enabledInputMethodList.any { it.packageName == context.packageName }
+}.getOrDefault(false)
+
+/**
+ * Opens Android's keyboard list, where the voice keyboard is turned on, as Transcribro's StartScreen button does
+ * https://developer.android.com/reference/android/provider/Settings#ACTION_INPUT_METHOD_SETTINGS
+ */
+fun openKeyboardSettings(context: Context) {
+    try {
+        context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (none: ActivityNotFoundException) {
+        runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    }
+}
+
+/**
  * Opens Android's voice input page, the general Settings when the phone has none.
  * https://developer.android.com/reference/android/provider/Settings#ACTION_VOICE_INPUT_SETTINGS
  */

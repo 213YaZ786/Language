@@ -21,3 +21,5 @@ case_run 6 "error 3" --es wav jfk.wav --ei encoding 4   # an encoding it cannot 
 case_run 6 "error 6" --es wav nothing.wav               # nothing to hear: ERROR_SPEECH_TIMEOUT
 case_run 15 "error 6" --es lang en                      # the microphone, nothing said
 case_run 240 "results And so my fellow Americans" --es wav jfk.wav --es lang en --ez detect true
+# the RECOGNIZE_SPEECH panel opened for a result, the WAV in place of the microphone (debug TestSound)
+case_run 240 "panel result=-1 \[And so my fellow Americans" --ez panel true --es wav jfk.wav --es lang en
