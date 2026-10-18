@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adapted from Calculator's AndroidManifest.xml (application attributes, update kit pieces). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Listening: the microphone is open only while a dictation runs. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- The speech model, once, when the user asks for it, and the update check on GitHub when the app opens.
+         Nothing else goes out. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Only used when the user chooses to install updates from the app; Android asks them then. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- An update goes in without a question when the user leaves the app. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+    <!-- The note after an update and while one downloads. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:name=".VoiceApplication"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Voice"
+        android:enableOnBackInvokedCallback="false"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:memtagMode="sync">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- The phone's speech recognizer (Settings > Voice input), as Transcribro declares its own: only apps that may
+             record (RECORD_AUDIO) can bind it. -->
+        <service
+            android:name=".recognition.VoiceRecognitionService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.RECORD_AUDIO">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.speech"
+                android:resource="@xml/recognition_service" />
+        </service>
+
+        <!-- After an update the app installed itself: a notification to open it again. -->
+        <receiver
+            android:name=".core.update.UpdatedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug builds only: an app calling the recognition service (RecognizerTestActivity). Only the shell
+             (DUMP) can start it, as Keyboard's DictationTestReceiver. -->
+        <activity
+            android:name="com.yaz.voice.recognition.RecognizerTestActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+    </application>
+</manifest>

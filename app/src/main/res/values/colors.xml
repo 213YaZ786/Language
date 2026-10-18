@@ -1,0 +1,5 @@
+<resources>
+    <!-- Temporary launcher icon on the wallpaper's accent, as Calculator's launcher colours
+         (res/values/colors.xml); the real icon comes later. -->
+    <color name="ic_launcher_background">@android:color/system_accent1_500</color>
+</resources>
