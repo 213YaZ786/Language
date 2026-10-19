@@ -1,11 +1,13 @@
 package com.yaz.voice.share
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -88,6 +91,14 @@ private fun TranscriptScreen(model: TranscribeViewModel, onClose: () -> Unit, on
             else -> Unit
         }
     }
+    val working = transcript.step == Transcript.Step.READING || transcript.step == Transcript.Step.WRITING
+    // The writing runs while the screen is open and nothing runs once it is left: the screen stays on until it is done
+    // (a window flag, no permission) https://developer.android.com/develop/background-work/background-tasks/awake/screen-on
+    val window = (context as? Activity)?.window
+    DisposableEffect(working) {
+        if (working) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
     FloatingFrame(
         bottom = 0.dp,
         top = { FloatingTop("Transcript", trailing = { FloatingAction(AppIcons.Close, "Close", onClose) }) }
@@ -99,17 +110,18 @@ private fun TranscriptScreen(model: TranscribeViewModel, onClose: () -> Unit, on
         ) {
             ZoneSurface(shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp)) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    val working = transcript.step == Transcript.Step.READING || transcript.step == Transcript.Step.WRITING
                     if (working) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            LoadingMark(Modifier, 28.dp, true)
+                            LoadingMark(Modifier, 28.dp, true, transcript.progress)
                             Text(
-                                if (transcript.step == Transcript.Step.READING) "Reading the sound…"
-                                else "Writing out ${minutes(transcript.seconds)}…",
+                                progressLabel(transcript),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                    }
+                    if (transcript.step == Transcript.Step.CANCELLED) {
+                        Text("Cancelled", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     val reason = when (transcript.step) {
                         Transcript.Step.NO_ENGINE -> "Voice needs its Whisper model to write out a sound"
@@ -128,6 +140,9 @@ private fun TranscriptScreen(model: TranscribeViewModel, onClose: () -> Unit, on
                     BoldButton(onClick = onEngine, modifier = Modifier.weight(1f)) { Text("Choose an engine", maxLines = 1) }
                 } else {
                     val has = transcript.text.isNotBlank()
+                    if (working) {
+                        BoldButton(onClick = { haptics.reject(); model.cancel() }, modifier = Modifier.weight(1f)) { Text("Cancel", maxLines = 1) }
+                    }
                     BoldButton(onClick = {
                         context.getSystemService(ClipboardManager::class.java)
                             .setPrimaryClip(ClipData.newPlainText("Transcript", transcript.text))
@@ -140,6 +155,21 @@ private fun TranscriptScreen(model: TranscribeViewModel, onClose: () -> Unit, on
                 }
             }
         }
+    }
+}
+
+/**
+ * What is being done: "Minute 3 of 12" once the sound is a minute or more (the minute the words written so far are
+ * in, from their times against the length in the track's format), else its length. The times are the words'
+ * own, counted as RecognitionPart counts them https://developer.android.com/reference/android/speech/RecognitionPart
+ */
+private fun progressLabel(transcript: Transcript): String {
+    if (transcript.step == Transcript.Step.READING) return "Reading the sound…"
+    val total = (transcript.durationMs + 59_999L) / 60_000L
+    return when {
+        total >= 2 -> "Minute ${minOf(total, transcript.positionMs / 60_000L + 1)} of $total"
+        transcript.durationMs > 0 -> "Writing out ${minutes((transcript.durationMs / 1000L).toInt())}…"
+        else -> "Writing out…"
     }
 }
 

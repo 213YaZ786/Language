@@ -83,6 +83,13 @@ class RecognizerTestActivity : Activity() {
             if (intent.getBooleanExtra("segmented", false)) {
                 putExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION, RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS)
             }
+            // A session that lasts as long as the sound handed in, as Recorder asks it
+            // https://developer.android.com/reference/android/speech/RecognizerIntent#EXTRA_SEGMENTED_SESSION
+            if (intent.getBooleanExtra("whole", false)) {
+                putExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION, RecognizerIntent.EXTRA_AUDIO_SOURCE)
+            }
+            // Each word's time https://developer.android.com/reference/android/speech/RecognizerIntent#EXTRA_REQUEST_WORD_TIMING
+            if (intent.getBooleanExtra("timing", false)) putExtra(RecognizerIntent.EXTRA_REQUEST_WORD_TIMING, true)
             if (intent.getBooleanExtra("detect", false)) putExtra(RecognizerIntent.EXTRA_ENABLE_LANGUAGE_DETECTION, true)
             intent.getStringArrayExtra("bias")?.let { putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(it.toList())) }
             if (intent.hasExtra("silence")) {
@@ -115,7 +122,14 @@ class RecognizerTestActivity : Activity() {
         out.writeText(log.toString())
     }
 
-    private fun words(bundle: Bundle?) = bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.joinToString(" | ")
+    // The results, then each RecognitionPart as text@ms when the words' times were asked (SpeechRecognizer.RECOGNITION_PARTS
+    // https://developer.android.com/reference/android/speech/SpeechRecognizer#RECOGNITION_PARTS)
+    private fun words(bundle: Bundle?): String? {
+        val text = bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.joinToString(" | ") ?: return null
+        val parts = bundle.getParcelableArrayList(SpeechRecognizer.RECOGNITION_PARTS, android.speech.RecognitionPart::class.java)
+            ?: return text
+        return text + " parts " + parts.joinToString(" ") { "${it.rawText}@${it.timestampMillis}" }
+    }
 
     private val listener = object : RecognitionListener {
         private var levels = 0

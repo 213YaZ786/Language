@@ -5,8 +5,10 @@ import android.content.Intent
 import android.media.AudioFormat
 import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
 import android.os.ParcelFileDescriptor
 import android.speech.ModelDownloadListener
+import android.speech.RecognitionPart
 import android.speech.RecognitionService
 import android.speech.RecognitionSupport
 import android.speech.RecognizerIntent
@@ -39,6 +41,11 @@ import java.util.Locale
  *   languageDetection, onCheckRecognitionSupport, onTriggerModelDownload, getMaxConcurrentSessionsCount)
  *   https://android.googlesource.com/platform/cts/+/refs/heads/main/tests/tests/voiceRecognition/src/android/voicerecognition/cts/CtsRecognitionService.java
  * - the extras read are RecognizerIntent's https://developer.android.com/reference/android/speech/RecognizerIntent
+ * - word times (EXTRA_REQUEST_WORD_TIMING, Android 14): RecognitionPart.Builder(rawText).setTimestampMillis, one part per
+ *   word with its adjacent punctuation, under SpeechRecognizer.RECOGNITION_PARTS in the results and segment results
+ *   https://developer.android.com/reference/android/speech/RecognitionPart
+ * - a segmented session whose value is EXTRA_AUDIO_SOURCE ends when and only when the audio does, never on silence
+ *   https://developer.android.com/reference/android/speech/RecognizerIntent#EXTRA_AUDIO_SOURCE
  *
  * Nothing runs while no app is bound; a model is never fetched here (only on a tap in Voice).
  */
@@ -127,7 +134,14 @@ class VoiceRecognitionService : RecognitionService() {
             intent.getStringExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION) != null
         private val detection = Build.VERSION.SDK_INT >= 34 &&
             intent.getBooleanExtra(RecognizerIntent.EXTRA_ENABLE_LANGUAGE_DETECTION, false)
+        // The caller wants each word's time (RecognizerIntent.EXTRA_REQUEST_WORD_TIMING)
+        private val timed = Build.VERSION.SDK_INT >= 34 &&
+            intent.getBooleanExtra(RecognizerIntent.EXTRA_REQUEST_WORD_TIMING, false)
+        // The session lasts as long as the audio handed in (EXTRA_SEGMENTED_SESSION = EXTRA_AUDIO_SOURCE)
+        private val endsWithAudio = Build.VERSION.SDK_INT >= 33 &&
+            intent.getStringExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION) == RecognizerIntent.EXTRA_AUDIO_SOURCE
         private val words = StringBuilder()
+        private val parts = ArrayList<Parcelable>()
         private var began = false
         private var over = false
 
@@ -153,6 +167,8 @@ class VoiceRecognitionService : RecognitionService() {
                 source = source,
                 silenceMs = Extras.silence(intent),
                 prompt = Extras.prompt(intent),
+                timings = timed && engine == Dictation.Engine.WHISPER,
+                stopOnSilence = !(endsWithAudio && stream != null),
             )
             if (!started) fail(SpeechRecognizer.ERROR_RECOGNIZER_BUSY)
         }
@@ -186,11 +202,21 @@ class VoiceRecognitionService : RecognitionService() {
             if (partials) safely { callback.partialResults(bundle(joined(text))) }
         }
 
-        override fun committed(text: String) {
+        override fun committed(text: String) = commit(text, emptyList())
+
+        // A phrase with its words' times: one RecognitionPart per word, its time from the start of the session
+        // https://developer.android.com/reference/android/speech/RecognitionPart
+        override fun committedWords(text: String, words: List<Whisper.Word>) {
+            val made = if (Build.VERSION.SDK_INT >= 34) partsOf(words) else emptyList()
+            parts += made
+            commit(text, made)
+        }
+
+        private fun commit(text: String, phraseParts: List<Parcelable>) {
             speech()
             if (words.isNotEmpty()) words.append(' ')
             words.append(text)
-            if (segmented && Build.VERSION.SDK_INT >= 33) safely { callback.segmentResults(bundle(text)) }
+            if (segmented && Build.VERSION.SDK_INT >= 33) safely { callback.segmentResults(bundle(text, phraseParts)) }
             else if (partials) safely { callback.partialResults(bundle(words.toString())) }
         }
 
@@ -218,7 +244,7 @@ class VoiceRecognitionService : RecognitionService() {
                 segmented && Build.VERSION.SDK_INT >= 33 && why != Dictation.Why.FAILED &&
                     why != Dictation.Why.UNAVAILABLE && why != Dictation.Why.NO_MICROPHONE_RIGHT ->
                     safely { callback.endOfSegmentedSession() }
-                words.isNotEmpty() -> safely { callback.results(bundle(words.toString())) }
+                words.isNotEmpty() -> safely { callback.results(bundle(words.toString(), parts)) }
                 else -> safely { callback.error(errorFor(why)) }
             }
             finish()
@@ -263,12 +289,26 @@ class VoiceRecognitionService : RecognitionService() {
                 runCatching { fd.close() }
                 return Handed(null, bad = true)
             }
-            return Handed(StreamSource(fd, rate, channels))
+            // A session that ends with the audio reads all of it; any other keeps SMS's ten minutes.
+            val endsWithAudio =
+                intent.getStringExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION) == RecognizerIntent.EXTRA_AUDIO_SOURCE
+            return Handed(StreamSource(fd, rate, channels, capped = !endsWithAudio))
         }
 
-        fun bundle(text: String) = Bundle().apply {
+        // The results bundle of SpeechRecognizer: RESULTS_RECOGNITION, and RECOGNITION_PARTS (an ArrayList of
+        // RecognitionPart) when word times were asked https://developer.android.com/reference/android/speech/SpeechRecognizer#RECOGNITION_PARTS
+        fun bundle(text: String, parts: List<Parcelable> = emptyList()) = Bundle().apply {
             putStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION, arrayListOf(text))
+            if (parts.isNotEmpty() && Build.VERSION.SDK_INT >= 34) {
+                putParcelableArrayList(SpeechRecognizer.RECOGNITION_PARTS, ArrayList(parts))
+            }
         }
+
+        // RecognitionPart.Builder(rawText).setTimestampMillis(...) per word
+        // https://developer.android.com/reference/android/speech/RecognitionPart
+        @RequiresApi(34)
+        fun partsOf(words: List<Whisper.Word>): List<Parcelable> =
+            words.map { RecognitionPart.Builder(it.text).setTimestampMillis(it.startMs).build() }
 
         fun errorFor(why: Dictation.Why): Int = when (why) {
             Dictation.Why.NO_SPEECH -> SpeechRecognizer.ERROR_SPEECH_TIMEOUT

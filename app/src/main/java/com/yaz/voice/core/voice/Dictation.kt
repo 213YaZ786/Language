@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 
 /** A source of sound for a dictation: 16 kHz, mono, 16-bit. The microphone, or a file when the engine is tried. */
 interface PcmSource {
@@ -23,6 +24,11 @@ interface PcmSource {
      */
     fun read(buffer: ShortArray): Int
     fun release()
+    /**
+     * True for a source that cannot wait (the microphone: sound not read in a second is lost); the phrases held for
+     * whisper are then not bounded. A file or a stream waits, so reading stops while whisper is behind.
+     */
+    val realTime: Boolean get() = false
 }
 
 /**
@@ -35,6 +41,8 @@ interface PcmSource {
  */
 class MicSource(private val attribution: Context? = null) : PcmSource {
     private var record: AudioRecord? = null
+
+    override val realTime: Boolean get() = true
 
     override fun start() {
         val format = AudioFormat.Builder()
@@ -148,6 +156,15 @@ class Dictation(private val context: Context) {
         fun level(rmsDb: Float) = Unit
         /** The language heard (whisper's code, "fr"), after the first phrase written out: whisper_full_lang_id. */
         fun language(code: String) = Unit
+        /**
+         * A finished phrase with its words and their times, in milliseconds from the start of the dictation (the
+         * phrase's place in the sound plus the word's place in the phrase), as Android's RecognitionPart counts
+         * (getTimestampMillis: from the start of the recognition session)
+         * https://developer.android.com/reference/android/speech/RecognitionPart
+         * WHISPER only, when [Dictation.start] was asked for timings. By default it hands the text to [committed], so
+         * a listener that ignores times is unchanged; one that wants them overrides this and not [committed].
+         */
+        fun committedWords(text: String, words: List<Whisper.Word>) = committed(text)
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -161,7 +178,10 @@ class Dictation(private val context: Context) {
      * SpeechModel) and writes [language] when whisper knows it, else finds it from the sound. [source] is the sound,
      * the microphone when null. [silenceMs]: silence after speech that ends it (an app asking for another length:
      * RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS). [prompt]: words the speech likely holds,
-     * given to whisper (Whisper.transcribe). False when one is already running; otherwise the answer comes to [listener].
+     * given to whisper (Whisper.transcribe). [timings]: WHISPER writes each phrase out word by word and
+     * [Listener.committedWords] gets the times. [stopOnSilence] false: no silence and no nothing-said ends it ([silenceMs]
+     * ignored), only the source's end or [stop] (a session whose audio is a stream). False when one is already running;
+     * otherwise the answer comes to [listener].
      */
     fun start(
         engine: Engine,
@@ -171,6 +191,8 @@ class Dictation(private val context: Context) {
         source: PcmSource? = null,
         silenceMs: Long = SILENCE_MS,
         prompt: String? = null,
+        timings: Boolean = false,
+        stopOnSilence: Boolean = true,
     ): Boolean {
         if (session != null) return false
         if (source == null && context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -179,7 +201,7 @@ class Dictation(private val context: Context) {
         }
         val made: Session = when (engine) {
             Engine.SYSTEM -> SystemSession(language, listener, silenceMs)
-            Engine.WHISPER -> WhisperSession(language, model, listener, source ?: MicSource(), silenceMs, prompt)
+            Engine.WHISPER -> WhisperSession(language, model, listener, source ?: MicSource(), silenceMs, prompt, timings, stopOnSilence)
         }
         session = made
         if (!made.begin()) {
@@ -196,6 +218,13 @@ class Dictation(private val context: Context) {
     fun stop(flush: Boolean) {
         session?.stop(flush)
     }
+
+    /**
+     * A phrase to write out and where it begins in the sound (ms from the start of the dictation), the place VadSegmenter
+     * gives; the start time of a segment as whisper.h counts it
+     * https://github.com/ggml-org/whisper.cpp/blob/v1.9.4/include/whisper.h
+     */
+    private class Queued(val pcm: FloatArray, val startMs: Long)
 
     private interface Session {
         fun begin(): Boolean
@@ -263,18 +292,25 @@ class Dictation(private val context: Context) {
         private val source: PcmSource,
         private val silenceMs: Long,
         private val prompt: String?,
+        private val timings: Boolean,
+        private val stopOnSilence: Boolean,
     ) : Session {
         @Volatile private var stopRequested = false
         @Volatile private var flush = false
         @Volatile private var cancelled = false
         @Volatile private var why = Why.USER
         @Volatile private var spoke = false
-        private val phrases = LinkedBlockingQueue<Any>()
+        @Volatile private var writerGone = false
+
+        // A bounded queue: reading a file waits for whisper when it is behind; the microphone cannot wait, so its
+        // phrases are only held. https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/LinkedBlockingQueue.html
+        private val phrases = LinkedBlockingQueue<Any>(if (source.realTime) Int.MAX_VALUE else MAX_QUEUED)
         private val end = Any()
 
         override fun begin(): Boolean {
-            if (!Whisper.loaded || model == null || !model.exists()) return false
-            val vadFile = SileroModel.file(context) ?: return false
+            // A source handed in (an opened file) is released when the dictation cannot start, as when it ends
+            if (!Whisper.loaded || model == null || !model.exists()) { source.release(); return false }
+            val vadFile = SileroModel.file(context) ?: run { source.release(); return false }
             Whisper.abort(false)
             try {
                 source.start()
@@ -305,7 +341,7 @@ class Dictation(private val context: Context) {
         private fun listen(vadFile: File) {
             val libDir = context.applicationInfo.nativeLibraryDir
             val vad = Whisper.vadOpen(libDir, vadFile.path)
-            val segmenter = VadSegmenter(VadSegmenter.Params(stopSilenceMs = silenceMs.toInt()))
+            val segmenter = VadSegmenter(VadSegmenter.Params(stopSilenceMs = silenceMs.toInt(), neverStops = !stopOnSilence))
             val shorts = ShortArray(SAMPLE_RATE / 10)
             val chunk = FloatArray(CHUNK)
             var held = 0
@@ -347,14 +383,31 @@ class Dictation(private val context: Context) {
             } finally {
                 source.release()
                 if (vad != 0L) Whisper.vadClose(vad)
-                phrases.put(end)
+                finishQueue()
+            }
+        }
+
+        // LinkedBlockingQueue.offer(e, timeout, unit) in a loop: waits for room while whisper is behind, and gives up
+        // at once when the dictation is cancelled or the writer is gone, so a cancel never waits on a full queue
+        // https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/LinkedBlockingQueue.html
+        private fun enqueue(phrase: Queued) {
+            while (!cancelled && !writerGone) {
+                if (phrases.offer(phrase, 100, TimeUnit.MILLISECONDS)) return
+            }
+        }
+
+        // The end marker always gets through: what waits is dropped when nobody will write it out any more
+        // https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/LinkedBlockingQueue.html
+        private fun finishQueue() {
+            while (!phrases.offer(end, 100, TimeUnit.MILLISECONDS)) {
+                if (cancelled || writerGone) phrases.clear()
             }
         }
 
         private fun handle(events: List<VadSegmenter.Event>, vad: Long) {
             for (event in events) when (event) {
                 is VadSegmenter.Event.Phrase -> {
-                    phrases.put(event.pcm)
+                    enqueue(Queued(event.pcm, event.startSample * 1000L / SAMPLE_RATE))
                     if (event.endsUtterance) Whisper.vadReset(vad)
                 }
                 is VadSegmenter.Event.Stop -> {
@@ -385,15 +438,28 @@ class Dictation(private val context: Context) {
                     val next = phrases.take()
                     if (next === end) break
                     if (cancelled) continue
-                    val bytes = Whisper.transcribe(handle, next as FloatArray, threads, code, true, prompt) ?: continue
+                    val phrase = next as Queued
+                    val bytes = (if (timings) Whisper.transcribeWords(handle, phrase.pcm, threads, code, true, prompt)
+                        else Whisper.transcribe(handle, phrase.pcm, threads, code, true, prompt)) ?: continue
                     if (!told) {
                         told = true
                         Whisper.heardLanguage(handle)?.let { heard -> main.post { if (!cancelled) listener.language(heard) } }
                     }
-                    val text = String(bytes, StandardCharsets.UTF_8).trim()
-                    if (text.isNotEmpty() && !cancelled) main.post { if (!cancelled) listener.committed(text) }
+                    if (cancelled) continue
+                    if (timings) {
+                        // Word times are made absolute: the phrase's place in the sound plus the word's in the phrase
+                        val words = Whisper.parseWords(bytes).map {
+                            Whisper.Word(it.text, phrase.startMs + it.startMs, phrase.startMs + it.endMs)
+                        }
+                        val text = words.joinToString(" ") { it.text }
+                        if (text.isNotEmpty()) main.post { if (!cancelled) listener.committedWords(text, words) }
+                    } else {
+                        val text = String(bytes, StandardCharsets.UTF_8).trim()
+                        if (text.isNotEmpty()) main.post { if (!cancelled) listener.committed(text) }
+                    }
                 }
             } finally {
+                writerGone = true
                 if (handle != 0L) Whisper.close(handle)
                 val reported = if (cancelled && why == Why.USER) null else why
                 main.post {
@@ -417,5 +483,7 @@ class Dictation(private val context: Context) {
         const val SILENCE_MS = 3_000L
         /** Four windows of Silero's 512 samples: one call of the detector. */
         private const val CHUNK = 4 * 512
+        /** Phrases waiting for whisper when the sound is a file or a stream: reading waits beyond this. */
+        private const val MAX_QUEUED = 3
     }
 }

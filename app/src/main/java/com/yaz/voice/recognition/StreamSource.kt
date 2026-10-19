@@ -13,12 +13,16 @@ import java.io.InputStream
  * Only 16-bit PCM is read (the documented default); it is mixed down to mono and brought to 16 kHz by SMS's
  * Transcriber.Resampler (linear, across buffers)
  * https://github.com/213YaZ786/SMS/blob/main/app/src/main/java/com/yaz/sms/core/voice/Transcriber.kt
- * The end of the stream ends the dictation as a file does (-1). At most [MAX_SECONDS] are read.
+ * The end of the stream ends the dictation as a file does (-1). At most [MAX_SECONDS] are read, unless [capped] is
+ * false: a segmented session on the audio source lasts as long as the audio (RecognizerIntent.EXTRA_SEGMENTED_SESSION
+ * https://developer.android.com/reference/android/speech/RecognizerIntent#EXTRA_SEGMENTED_SESSION), a recording of
+ * hours handed in by Recorder.
  */
 class StreamSource(
     private val stream: ParcelFileDescriptor,
     private val rate: Int,
     private val channels: Int,
+    private val capped: Boolean = true,
 ) : PcmSource {
     private var input: InputStream? = null
     private val ch = channels.coerceIn(1, 8)
@@ -45,7 +49,7 @@ class StreamSource(
         System.arraycopy(ready, readyFrom, buffer, 0, n)
         readyFrom += n
         given += n
-        if (given >= MAX_SECONDS * Dictation.SAMPLE_RATE) over = true
+        if (capped && given >= MAX_SECONDS * Dictation.SAMPLE_RATE) over = true
         return n
     }
 
