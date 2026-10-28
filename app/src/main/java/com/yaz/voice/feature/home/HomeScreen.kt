@@ -204,7 +204,8 @@ fun HomeScreen(onSettings: () -> Unit, viewModel: HomeViewModel = koinViewModel(
 @Composable
 private fun EngineRow(model: SpeechModel, state: SpeechModel.State, networkAllowed: Boolean, onSettings: () -> Unit) {
     val haptics = rememberHaptics()
-    val name = if (model.usesSystem) "This phone's recognizer" else "Whisper ${model.pin.label} · ${model.pin.bytes / 1_000_000} MB"
+    // Parts joined with a comma, as AOSP Dialer's CallLogEntryText.java (https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calllogutils/CallLogEntryText.java).
+    val name = if (model.usesSystem) "This phone's recognizer" else "Whisper ${model.pin.label}, ${model.pin.bytes / 1_000_000} MB"
     val get = {
         haptics.done()
         if (networkAllowed) model.fetch() else onSettings()
@@ -212,15 +213,15 @@ private fun EngineRow(model: SpeechModel, state: SpeechModel.State, networkAllow
     when (state) {
         SpeechModel.State.Ready -> StatusRow(AppIcons.Memory, "Engine", name, ok = true, action = null, onClick = { haptics.tick(); onSettings() })
         SpeechModel.State.Missing -> StatusRow(
-            AppIcons.Memory, "Engine", if (networkAllowed) name else "$name · the network is off",
+            AppIcons.Memory, "Engine", if (networkAllowed) name else "$name, the network is off",
             ok = false, action = if (networkAllowed) "Get" else "Settings", onClick = get
         )
         is SpeechModel.State.Fetching -> StatusRow(
-            AppIcons.Memory, "Engine", "$name · ${(state.done * 100).toInt()}%",
+            AppIcons.Memory, "Engine", "$name, ${(state.done * 100).toInt()}%",
             ok = false, action = "Stop", onClick = { haptics.tick(); model.cancel() }, progress = state.done
         )
         SpeechModel.State.Failed -> StatusRow(
-            AppIcons.Memory, "Engine", "$name · could not get it",
+            AppIcons.Memory, "Engine", "$name, could not get it",
             ok = false, problem = true, action = "Retry", onClick = get
         )
     }

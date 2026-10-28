@@ -213,7 +213,8 @@ private fun EngineChoices(model: SpeechModel, settings: Settings) {
     listOf(SpeechModel.BASE, SpeechModel.SMALL).forEach { pin ->
         SettingRow(
             title = "Whisper ${pin.label}",
-            summary = "${pin.bytes / 1_000_000} MB · ${pin.quality}",
+            // Joined with a comma, as AOSP Dialer's CallLogEntryText.java (https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calllogutils/CallLogEntryText.java).
+            summary = "${pin.bytes / 1_000_000} MB, ${pin.quality}",
             onClick = { if (!fetching) model.choose(pin) },
             trailing = { GlassRadio(selected = !model.usesSystem && model.pin == pin, onClick = null) }
         )
@@ -224,7 +225,7 @@ private fun EngineChoices(model: SpeechModel, settings: Settings) {
                 when (val s = state) {
                     is SpeechModel.State.Fetching -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         LoadingMark(size = 28.dp, progress = s.done)
-                        Text("Getting it · ${(s.done * 100).toInt()}%")
+                        Text("Getting it, ${(s.done * 100).toInt()}%")
                     }
                     SpeechModel.State.Ready -> Text("On the phone")
                     SpeechModel.State.Failed -> Text("Could not get it", color = MaterialTheme.colorScheme.error)
@@ -237,7 +238,7 @@ private fun EngineChoices(model: SpeechModel, settings: Settings) {
                     is SpeechModel.State.Fetching -> QuietButton(onClick = { haptics.tick(); model.cancel() }) { Text("Cancel") }
                     SpeechModel.State.Ready -> QuietButton(onClick = { haptics.reject(); model.remove() }) { Text("Remove") }
                     SpeechModel.State.Missing, SpeechModel.State.Failed -> BoldButton(onClick = { haptics.done(); model.fetch() }) {
-                        Text(if (state == SpeechModel.State.Failed) "Retry" else "Download · ${model.pin.bytes / 1_000_000} MB")
+                        Text(if (state == SpeechModel.State.Failed) "Retry" else "Download, ${model.pin.bytes / 1_000_000} MB")
                     }
                 }
             },

@@ -104,7 +104,8 @@ fun WelcomeScreen(onStart: () -> Unit) {
         }
         Spacer(Modifier.height(16.dp))
         // The phone's recognizer when it has the language, else the model for this phone, already chosen.
-        val name = if (model.usesSystem) "This phone's recognizer" else "Whisper ${model.pin.label} · ${model.pin.bytes / 1_000_000} MB"
+        // Parts joined with a comma, as AOSP Dialer's CallLogEntryText.java (https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calllogutils/CallLogEntryText.java).
+        val name = if (model.usesSystem) "This phone's recognizer" else "Whisper ${model.pin.label}, ${model.pin.bytes / 1_000_000} MB"
         WelcomeZone(AppIcons.Memory, "Engine", done = state == SpeechModel.State.Ready) {
             Text(name, style = MaterialTheme.typography.bodyLarge)
             when (val s = state) {
