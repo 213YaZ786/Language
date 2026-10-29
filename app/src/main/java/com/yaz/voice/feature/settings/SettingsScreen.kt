@@ -75,14 +75,16 @@ fun SettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     var updatesOpen by rememberSaveable { mutableStateOf(false) }
 
+    val pageScroll = rememberScrollState()
     FloatingFrame(
         bottom = 0.dp,
+        scroll = pageScroll,
         top = { FloatingTop("Settings", leading = { FloatingAction(AppIcons.ArrowBack, "Back", onBack) }) }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(pageScroll)
                 .padding(horizontal = LocalReadableInset.current)
         ) {
             Spacer(Modifier.height(padding.calculateTopPadding()))

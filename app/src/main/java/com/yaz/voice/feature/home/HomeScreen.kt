@@ -131,14 +131,16 @@ fun HomeScreen(onSettings: () -> Unit, viewModel: HomeViewModel = koinViewModel(
         }
     }
 
+    val pageScroll = rememberScrollState()
     FloatingFrame(
         bottom = 0.dp,
+        scroll = pageScroll,
         top = { FloatingTop("Voice", trailing = { FloatingAction(AppIcons.Settings, "Settings", onSettings) }) }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(pageScroll)
                 .padding(horizontal = LocalReadableInset.current + 16.dp)
         ) {
             Spacer(Modifier.height(padding.calculateTopPadding()))

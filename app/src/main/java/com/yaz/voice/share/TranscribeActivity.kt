@@ -99,12 +99,14 @@ private fun TranscriptScreen(model: TranscribeViewModel, onClose: () -> Unit, on
         if (working) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
+    val pageScroll = rememberScrollState()
     FloatingFrame(
         bottom = 0.dp,
+        scroll = pageScroll,
         top = { FloatingTop("Transcript", trailing = { FloatingAction(AppIcons.Close, "Close", onClose) }) }
     ) { padding ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).padding(16.dp),
+            Modifier.fillMaxSize().verticalScroll(pageScroll).padding(padding).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
