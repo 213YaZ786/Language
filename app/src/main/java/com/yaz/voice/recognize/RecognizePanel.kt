@@ -185,7 +185,8 @@ private fun Sheet(asked: Asked, heard: Heard, problem: Problem?, onMic: () -> Un
                             Problem.ENGINE -> "Open Voice"
                             null -> "Try again"
                         },
-                        maxLines = 1
+                        // Wraps between words in another language or at 200 %, never cut.
+                        textAlign = TextAlign.Center
                     )
                 }
             }

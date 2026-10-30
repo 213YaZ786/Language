@@ -23,6 +23,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.style.TextAlign
+import com.yaz.voice.feature.home.BalancedButtons
+import com.yaz.voice.feature.home.GroupLabel
+import com.yaz.voice.feature.home.ButtonSpec
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -137,25 +141,33 @@ private fun TranscriptScreen(model: TranscribeViewModel, onClose: () -> Unit, on
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp)) {
+            // The buttons in measured, balanced rows (HomeScreen's BalancedButtons), their labels wrapping between words.
+            val has = transcript.text.isNotBlank()
+            BalancedButtons(
                 if (transcript.step == Transcript.Step.NO_ENGINE) {
-                    BoldButton(onClick = onEngine, modifier = Modifier.weight(1f)) { Text("Choose an engine", maxLines = 1) }
+                    listOf(ButtonSpec("Choose an engine") { BoldButton(onClick = onEngine, modifier = it) { GroupLabel("Choose an engine") } })
                 } else {
-                    val has = transcript.text.isNotBlank()
-                    if (working) {
-                        BoldButton(onClick = { haptics.reject(); model.cancel() }, modifier = Modifier.weight(1f)) { Text("Cancel", maxLines = 1) }
+                    buildList {
+                        if (working) {
+                            add(ButtonSpec("Cancel") { BoldButton(onClick = { haptics.reject(); model.cancel() }, modifier = it) { GroupLabel("Cancel") } })
+                        }
+                        add(ButtonSpec("Copy") {
+                            BoldButton(onClick = {
+                                context.getSystemService(ClipboardManager::class.java)
+                                    .setPrimaryClip(ClipData.newPlainText("Transcript", transcript.text))
+                                haptics.done()
+                            }, enabled = has, modifier = it) { GroupLabel("Copy") }
+                        })
+                        add(ButtonSpec("Share") {
+                            BoldButton(onClick = {
+                                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, transcript.text)
+                                context.startActivity(Intent.createChooser(send, null))
+                            }, enabled = has, modifier = it) { GroupLabel("Share") }
+                        })
                     }
-                    BoldButton(onClick = {
-                        context.getSystemService(ClipboardManager::class.java)
-                            .setPrimaryClip(ClipData.newPlainText("Transcript", transcript.text))
-                        haptics.done()
-                    }, enabled = has, modifier = Modifier.weight(1f)) { Text("Copy", maxLines = 1) }
-                    BoldButton(onClick = {
-                        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, transcript.text)
-                        context.startActivity(Intent.createChooser(send, null))
-                    }, enabled = has, modifier = Modifier.weight(1f)) { Text("Share", maxLines = 1) }
-                }
-            }
+                },
+                Modifier.widthIn(max = 520.dp)
+            )
         }
     }
 }

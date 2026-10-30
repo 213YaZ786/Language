@@ -16,6 +16,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -93,11 +97,15 @@ fun VoicePanel(state: ImeState, keys: PanelKeys) {
                     .windowInsetsPadding(WindowInsets.navigationBars),
                 contentAlignment = Alignment.TopCenter
             ) {
+                // 220 dp is a minimum, not a fixed height: an input window may grow with a longer language or the 200 %
+                // font, up to half the screen (heightIn, https://developer.android.com/develop/ui/compose/layouts/size);
+                // beyond that the keys scroll up and down inside it, never sideways.
+                val most = maxOf(220, LocalConfiguration.current.screenHeightDp / 2).dp
                 Box(
                     Modifier
                         .widthIn(max = 560.dp)
                         .fillMaxWidth()
-                        .height(220.dp)
+                        .heightIn(min = 220.dp, max = most)
                         .padding(horizontal = 12.dp, vertical = 12.dp)
                 ) {
                     if (state.password) PasswordPanel(keys) else Keys(state, keys)
@@ -114,7 +122,7 @@ private fun PasswordPanel(keys: PanelKeys) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxWidth().heightIn(min = 196.dp).verticalScroll(rememberScrollState())
     ) {
         Text(
             "No dictation in password fields",
@@ -146,7 +154,7 @@ private fun Keys(state: ImeState, keys: PanelKeys) {
     val target = if (listening) 1f + 0.15f * heard.loudness else 1f
     val swell by animateFloatAsState(target, spring(dampingRatio = 0.6f, stiffness = 400f), label = "swell")
 
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
+    Column(Modifier.fillMaxWidth().heightIn(min = 196.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.SpaceBetween) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Key(AppIcons.Settings, "Settings") { haptics.tick(); keys.onSettings() }
             Spacer(Modifier.size(8.dp))
@@ -163,9 +171,8 @@ private fun Keys(state: ImeState, keys: PanelKeys) {
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    // Wraps between words on as many lines as it needs, never cut.
                     textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
                 )
             }
@@ -178,7 +185,7 @@ private fun Keys(state: ImeState, keys: PanelKeys) {
         if (problem != null && heard.phase == Phase.IDLE) {
             Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 BoldButton(onClick = { haptics.tick(); keys.onProblem() }) {
-                    Text(if (problem == Problem.MICROPHONE) "Allow the microphone" else "Choose an engine", maxLines = 1)
+                    Text(if (problem == Problem.MICROPHONE) "Allow the microphone" else "Choose an engine", textAlign = TextAlign.Center)
                 }
             }
         }
