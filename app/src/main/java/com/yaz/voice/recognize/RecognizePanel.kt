@@ -137,16 +137,16 @@ private fun Sheet(asked: Asked, heard: Heard, problem: Problem?, onMic: () -> Un
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            ZoneSurface(shape = RoundedCornerShape(50)) {
-                Text(
-                    language,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                )
-            }
+            // The language does nothing when touched, so it is plain text, no pill (the user, 2026-10-30; M3 titles are text, not containers,
+            // https://m3.material.io/components/top-app-bar/overview).
+            Text(
+                language,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
                 BoldIconButton(
                     onClick = onMic,
