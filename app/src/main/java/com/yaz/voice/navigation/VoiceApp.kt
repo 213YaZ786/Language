@@ -41,7 +41,13 @@ fun VoiceApp() {
             ReadableScroll { HomeScreen(onSettings = { nav.navigate(Routes.SETTINGS) }) }
         }
         composable(Routes.SETTINGS) {
-            ReadableScroll { SettingsScreen(onBack = { nav.popBackStack() }) }
+            ReadableScroll {
+                SettingsScreen(
+                    onBack = { nav.popBackStack() },
+                    // As Store's StoreApp.kt: the welcome route again, the home below it dropped (its end opens the home).
+                    onGuide = { nav.navigate(Routes.WELCOME) { popUpTo(Routes.HOME) { inclusive = true } } }
+                )
+            }
         }
     }
     PlainBack(nav)

@@ -67,7 +67,7 @@ import org.koin.compose.koinInject
  * https://github.com/soupslurpr/Transcribro/blob/main/app/src/main/kotlin/dev/soupslurpr/transcribro/ui/settings/SettingsStartScreen.kt
  */
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onGuide: () -> Unit) {
     val store: SettingsStore = koinInject()
     val speech: VoiceSpeech = koinInject()
     val settings by store.settings.collectAsState()
@@ -128,6 +128,8 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
 
             Section("About") {
+                // The same first row in every app, as Dialer's "Guide" tile (YAZ/Dialer feature/settings/SettingsScreen.kt) and Store's (onGuide).
+                SettingRow(title = "Guide", summary = "See the welcome pages again", onClick = onGuide)
                 SettingRow(title = "Updates", summary = updatesLabel(settings.updates), onClick = { updatesOpen = true })
                 SettingRow(title = "Voice ${BuildConfig.VERSION_NAME}", summary = "MIT License", onClick = null)
                 SettingRow(

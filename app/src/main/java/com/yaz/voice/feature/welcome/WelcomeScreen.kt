@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +48,6 @@ import com.yaz.voice.feature.common.rememberMicrophone
 import com.yaz.voice.ui.component.BoldButton
 import com.yaz.voice.ui.component.LoadingMark
 import com.yaz.voice.ui.component.QuietButton
-import com.yaz.voice.ui.component.ZoneSurface
 import com.yaz.voice.ui.component.rememberHaptics
 import com.yaz.voice.ui.icon.AppIcons
 import org.koin.compose.koinInject
@@ -94,7 +92,8 @@ fun WelcomeScreen(onStart: () -> Unit) {
         Spacer(Modifier.height(40.dp))
         LoadingMark(size = 140.dp, running = false)
         Spacer(Modifier.height(20.dp))
-        Text("Welcome to Voice", style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center)
+        // Every title in the accent (the user, 2026-10-31), as Modules' SettingsSectionTitle.
+        Text("Welcome to Voice", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
         Spacer(Modifier.height(32.dp))
 
         WelcomeZone(AppIcons.Mic, "Microphone", done = mic.granted) {
@@ -150,16 +149,21 @@ fun WelcomeScreen(onStart: () -> Unit) {
     }
 }
 
-/** One thing to settle, a tick once done. Copied from Calculator's WelcomeZone (same file as WelcomeScreen). */
+/**
+ * One thing to settle, a tick once done. Copied from Calculator's WelcomeZone (same file as WelcomeScreen).
+ * No zone on what is not tapped (the user, 2026-10-31), as EmptyZone and Element X's NotificationsOptInView
+ * https://github.com/element-hq/element-x-android/blob/develop/features/ftue/impl/src/main/kotlin/io/element/android/features/ftue/impl/notifications/NotificationsOptInView.kt
+ */
 @Composable
 private fun WelcomeZone(icon: ImageVector, title: String, done: Boolean, content: @Composable () -> Unit) {
-    ZoneSurface(shape = RoundedCornerShape(24.dp), modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (done) AppIcons.CheckCircle else icon, contentDescription = if (done) "Done" else null, tint = MaterialTheme.colorScheme.primary)
-                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 12.dp))
-            }
-            content()
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 22.dp, vertical = 20.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (done) AppIcons.CheckCircle else icon, contentDescription = if (done) "Done" else null, tint = MaterialTheme.colorScheme.primary)
+            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 12.dp))
         }
+        content()
     }
 }

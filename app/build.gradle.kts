@@ -25,8 +25,8 @@ android {
         applicationId = "com.yaz.voice"
         minSdk = 31
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
         // 64-bit ARM phones, and the x86_64 emulators (as Keyboard's app/build.gradle.kts lists its ABIs).
         ndk {
             abiFilters.clear()
