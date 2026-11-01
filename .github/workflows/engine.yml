@@ -126,6 +126,22 @@ jobs:
         working-directory: engine/bindings
         run: |
           cargo update
+          # The engine's own git sources stay at offline-translator v0.8.7's revisions: its bindings are
+          # written for them (translator-rs b0407af moved the file staging into Rust and dropped
+          # plan_zip_extraction). Only crates.io crates move. `cargo update -p <pkg> --precise <rev>`
+          # (https://doc.rust-lang.org/cargo/commands/cargo-update.html), for those still in the tree.
+          for pin in translator=bd32a4f272e239efb6867795c8b7d0c47c619b49 \
+                     slimt-sys=06e2c0006e71f66df99ba6409ad3f3e2bbcdcbfe \
+                     cld2=2bca970e413453717e000a1e878bedf2d3d45e75 \
+                     mnn-sys=9c0d4527d5755de37affc5dd1517cf10073844ad \
+                     mucab=fa6e863562bb8b7cf77d5a4156d42e86bd728f62 \
+                     mupdf=6f695fae38dcd1d4ed8f39f56b177042f3ff11a5 \
+                     espeak-rs=60b8daea72e8bd606086035d68a7ad7edd4a9fca \
+                     tarkka=29806be27b180c3089d6a66c0520d2859fad3b06; do
+            name=${pin%%=*}; rev=${pin#*=}
+            if grep -q "^name = \"$name\"$" Cargo.lock; then cargo update -p "$name" --precise "$rev"; fi
+          done
+          grep 'source = "git+' Cargo.lock | sort -u
           git diff --stat -- Cargo.lock
 
       # buildBindings<Abi> of app/build.gradle.kts.
