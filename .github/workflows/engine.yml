@@ -185,10 +185,28 @@ jobs:
           # Dependencies were removed from the crate: show how the lock was pruned.
           git diff --stat -- Cargo.lock
 
-      # The lock the build used, with its table printed (|| true so the release
-      # can be inspected, as SMS does).
+      # The lock the build used, with its table printed. Cargo.lock also lists the optional crates
+      # of the features that are off (OCR, PDF, rendering): the flaws that count are those of the
+      # crates this build compiles, from `cargo tree` with its own target and features, build
+      # scripts' crates included (https://doc.rust-lang.org/cargo/commands/cargo-tree.html), matched
+      # to osv-scanner's JSON report (https://google.github.io/osv-scanner/output/#json). One left
+      # stops the release.
       - name: Known flaws after
-        run: ./osv-scanner scan source -L engine/bindings/Cargo.lock || true
+        working-directory: engine/bindings
+        run: |
+          "$GITHUB_WORKSPACE/osv-scanner" scan source -L Cargo.lock || true
+          cargo tree --target "${{ matrix.triple }}" --no-default-features -e normal,build \
+            --prefix none -f '{p}' | sed 's/ (.*//' | sort -u > "$RUNNER_TEMP/compiled.txt"
+          wc -l < "$RUNNER_TEMP/compiled.txt"
+          "$GITHUB_WORKSPACE/osv-scanner" scan source --format json -L Cargo.lock > "$RUNNER_TEMP/osv.json" || true
+          jq -r '.results[]?.packages[]? | select((.vulnerabilities // []) | length > 0)
+                 | "\(.package.name) v\(.package.version)\t\([.vulnerabilities[].id] | join(" "))"' \
+            "$RUNNER_TEMP/osv.json" | sort -u > "$RUNNER_TEMP/flawed.txt"
+          echo "Flawed crates in the lock:"; cat "$RUNNER_TEMP/flawed.txt"
+          if cut -f1 "$RUNNER_TEMP/flawed.txt" | grep -Fxf - "$RUNNER_TEMP/compiled.txt"; then
+            echo "::error::A crate this build compiles has a known flaw (above)"; exit 1
+          fi
+          echo "No known flaw in the crates this build compiles"
 
       # buildUniffiBindgen and generateUniffiBindings, once: the Kotlin does not
       # depend on the ABI.
