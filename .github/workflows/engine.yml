@@ -139,6 +139,10 @@ jobs:
           export ANDROID_ABI="${{ matrix.abi }}"
           export ANDROID_PLATFORM="android-23"
           export CMAKE_GENERATOR="Ninja"
+          # The runner's CMake 4 refuses sentencepiece's cmake_minimum_required below 3.5 (vendored by
+          # slimt); upstream's Docker image has CMake 3. CMake's own way out, the environment variable
+          # CMAKE_POLICY_VERSION_MINIMUM (https://cmake.org/cmake/help/latest/envvar/CMAKE_POLICY_VERSION_MINIMUM.html).
+          export CMAKE_POLICY_VERSION_MINIMUM=3.5
           cargo ndk build --lib --target "${{ matrix.abi }}" --release \
             --no-default-features \
             --platform 23 --link-libcxx-shared \
