@@ -946,35 +946,6 @@ impl CatalogHandle {
         self.session.cancel_ongoing_work();
     }
 
-    #[cfg(any(feature = "pdf", feature = "image-render"))]
-    fn translate_document_path_with_progress(
-        &self,
-        input_path: String,
-        output_path: String,
-        forced_source_code: Option<String>,
-        target_code: String,
-        pdf_images: PdfImages,
-        txt_layout: TxtLayout,
-        progress: Arc<dyn DocumentProgressSink>,
-    ) -> Result<String, CatalogError> {
-        let options = translator::document::DocumentOptions {
-            forced_source_code: forced_source_code.as_deref(),
-            target_code: &target_code,
-            pdf_images: pdf_images.into(),
-            txt_layout: txt_layout.into(),
-            fonts: &crate::android_font_provider::AndroidFontProvider,
-        };
-        translator::document::translate_document_path(
-            &self.session,
-            &input_path,
-            &output_path,
-            &options,
-            &|event| progress.on_progress(event.into()),
-            &|| progress.is_cancelled(),
-        )?;
-        Ok(output_path)
-    }
-
     fn plan_download(
         &self,
         language_code: String,
@@ -1127,7 +1098,49 @@ impl CatalogHandle {
         }
     }
 
-    #[cfg(feature = "doc-align")]
+}
+
+// uniffi's guide: "#[cfg()] does not work correctly inside uniffi::export blocks" (the scaffolding
+// is generated whatever the feature), so each gated method sits in its own cfg'd export impl block
+// (several export impl blocks per object are allowed):
+// https://mozilla.github.io/uniffi-rs/latest/proc_macro/index.html
+// The methods are upstream's (DavidVentura/offline-translator v0.8.7, app/src/main/bindings/src/uniffi_catalog.rs),
+// moved out of the block above; the inner cfg branches are kept as upstream wrote them.
+#[cfg(any(feature = "pdf", feature = "image-render"))]
+#[uniffi::export]
+impl CatalogHandle {
+    fn translate_document_path_with_progress(
+        &self,
+        input_path: String,
+        output_path: String,
+        forced_source_code: Option<String>,
+        target_code: String,
+        pdf_images: PdfImages,
+        txt_layout: TxtLayout,
+        progress: Arc<dyn DocumentProgressSink>,
+    ) -> Result<String, CatalogError> {
+        let options = translator::document::DocumentOptions {
+            forced_source_code: forced_source_code.as_deref(),
+            target_code: &target_code,
+            pdf_images: pdf_images.into(),
+            txt_layout: txt_layout.into(),
+            fonts: &crate::android_font_provider::AndroidFontProvider,
+        };
+        translator::document::translate_document_path(
+            &self.session,
+            &input_path,
+            &output_path,
+            &options,
+            &|event| progress.on_progress(event.into()),
+            &|| progress.is_cancelled(),
+        )?;
+        Ok(output_path)
+    }
+}
+
+#[cfg(feature = "doc-align")]
+#[uniffi::export]
+impl CatalogHandle {
     fn detect_document_quad(
         &self,
         rgba_bytes: Vec<u8>,
@@ -1150,7 +1163,6 @@ impl CatalogHandle {
         }
     }
 
-    #[cfg(feature = "doc-align")]
     fn warp_document_rgba(
         &self,
         rgba_bytes: Vec<u8>,

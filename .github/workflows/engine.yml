@@ -34,12 +34,16 @@
 #   libc++_shared.so packaged by the app, for whisper.cpp, is the one this
 #   library was linked against; it is therefore not published here.
 # - ABIs: arm64-v8a and x86_64, the app's abiFilters.
-# - No `--locked`: removing dependencies prunes Cargo.lock. The build prints the
-#   lock's diff and publishes the resulting lock (Cargo-<abi>.lock).
+# - Rust is the latest stable (the crate's rust-version 1.88 is a minimum), and
+#   `cargo update` takes every crate to its newest compatible version before
+#   the build (bindings and bindings-bindgen). No `--locked`: that and the
+#   pruned dependencies change Cargo.lock. The build prints the lock's diff and
+#   publishes the resulting locks (Cargo-<abi>.lock, Cargo-bindgen.lock).
 #
 # Known flaws: Google's osv-scanner (github.com/google/osv-scanner, release
 # binary v2.7.0 checked against its published SHA-256, not an action) reads
-# Cargo.lock before the build and prints to the log.
+# both Cargo.lock files before the update and again after the build, and
+# prints its table to the log.
 #
 # Runs only on a push to the branch "engine" or by hand: main's Build is not
 # triggered, so no app release comes from it.
@@ -59,7 +63,7 @@ env:
   OT_COMMIT: "e7716c6859e3d90b8883c667c1a3cfeef407df08"
   PATCH: "p1"
   NDK_VERSION: "28.2.13676358"
-  RUST: "1.88.0"
+  RUST: "1.99.1"
   CARGO_NDK: "4.1.2"
   OSV_SCANNER: "v2.7.0"
   OSV_SCANNER_SHA256: "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b"
@@ -110,7 +114,19 @@ jobs:
           chmod +x osv-scanner
 
       - name: Known flaws before
-        run: ./osv-scanner scan source -L engine/bindings/Cargo.lock || true
+        run: |
+          ./osv-scanner scan source -L engine/bindings/Cargo.lock || true
+          ./osv-scanner scan source -L engine/bindings-bindgen/Cargo.lock || true
+
+      # Always patched and latest: every crate to its newest semver-compatible
+      # version (https://doc.rust-lang.org/cargo/commands/cargo-update.html), so
+      # fixes released since the pinned lock come in. The lock actually used is
+      # published (Cargo-<abi>.lock) to be pinned back into the repository.
+      - name: Latest compatible dependencies
+        working-directory: engine/bindings
+        run: |
+          cargo update
+          git diff --stat -- Cargo.lock
 
       # buildBindings<Abi> of app/build.gradle.kts.
       - name: Build libbindings.so
@@ -151,6 +167,8 @@ jobs:
           # Dependencies were removed from the crate: show how the lock was pruned.
           git diff --stat -- Cargo.lock
 
+      # The lock the build used, with its table printed (|| true so the release
+      # can be inspected, as SMS does).
       - name: Known flaws after
         run: ./osv-scanner scan source -L engine/bindings/Cargo.lock || true
 
@@ -159,7 +177,8 @@ jobs:
       - name: Generate the Kotlin bindings
         if: matrix.abi == 'arm64-v8a'
         run: |
-          (cd engine/bindings-bindgen && cargo build --release)
+          (cd engine/bindings-bindgen && cargo update && git diff --stat -- Cargo.lock && cargo build --release)
+          ./osv-scanner scan source -L engine/bindings-bindgen/Cargo.lock || true
           mkdir -p "$RUNNER_TEMP/kotlin"
           cd engine/bindings
           "$GITHUB_WORKSPACE/engine/bindings-bindgen/target/release/uniffi-bindgen" generate \
@@ -174,6 +193,7 @@ jobs:
           cp "$RUNNER_TEMP/jni/${{ matrix.abi }}/libbindings.so" "out/libbindings-${{ matrix.abi }}.so"
           cp engine/bindings/Cargo.lock "out/Cargo-${{ matrix.abi }}.lock"
           if [ "${{ matrix.abi }}" = arm64-v8a ]; then
+            cp engine/bindings-bindgen/Cargo.lock out/Cargo-bindgen.lock
             tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
               -C "$RUNNER_TEMP/kotlin" -cf - . | gzip -n > out/bindings-kotlin.tar.gz
           fi
