@@ -38,7 +38,7 @@ object AppIcons {
     /** Stop listening: av/stop. */
     val Stop: ImageVector by lazy { build("Stop", "M6 6h12v12H6z") }
 
-    /** Sound waves, the loading mark's shape: device/graphic_eq. */
+    /** Sound waves, the Whisper models' credit in Settings: device/graphic_eq. */
     val GraphicEq: ImageVector by lazy { build("GraphicEq", "M7 18h2V6H7v12zm4 4h2V2h-2v20zm-8-8h2v-4H3v4zm12 4h2V6h-2v12zm4-8v4h2v-4h-2z") }
 
     /** Search: action/search. */

@@ -11,25 +11,38 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.yaz.language.R
 import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * Language's loading mark: five bars of sound that rise and fall in turn, the shape of Material Icons' "graphic_eq"
- * (Apache License 2.0, five rounded bars on the 24 dp grid)
- * https://github.com/google/material-design-icons/blob/master/src/device/graphic_eq/materialicons/24px.svg
- * and, as Calculator's LoadingMark does, a clock from an infinite transition that staggers the pieces, each one
- * moving in its turn
- * https://github.com/213YaZ786/Calculator/blob/main/app/src/main/java/com/yaz/calculator/ui/component/LoadingMark.kt
- * The bars keep moving while [running] and rest at the icon's heights otherwise. A [progress] between 0 and 1 (a
- * download) is shown by the bars filling from the left, the rest faint.
+ * Language's loading mark, the launcher icon in motion (icon B: Material Symbols "translate" in ivory relief on the YAZ
+ * disc). Ported from Dialer's LoadingMark
+ * https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/ui/component/LoadingMark.kt
+ * and Modules' icons/README.md "Raster recipe": the grey body multiplied by the launcher's disc tone with
+ * ColorFilter.tint(..., BlendMode.Modulate) (by night the theme's inversePrimary, primary being pale then), its white
+ * rim light over it, the sign on top. At rest the three layers are the icon.
+ *
+ * While [running] the disc breathes and the sign rocks a little, as Dialer's disc and handset do. A [progress]
+ * between 0 and 1 (a download) shows the mark filling from the left, the rest faint (this app's own meaning of
+ * [progress], kept from its former bars).
  */
 @Composable
 fun LoadingMark(
@@ -38,50 +51,59 @@ fun LoadingMark(
     running: Boolean = true,
     progress: Float = 0f
 ) {
-    val tone = MaterialTheme.colorScheme.primary
-    val transition = rememberInfiniteTransition(label = "waves")
+    val body = ImageBitmap.imageResource(R.drawable.language_mark_body)
+    val shine = ImageBitmap.imageResource(R.drawable.language_mark_shine)
+    val sign = ImageBitmap.imageResource(R.drawable.language_mark_sign)
+    // The launcher icon's own tone (ic_launcher_disc) by day, inversePrimary by night.
+    val scheme = MaterialTheme.colorScheme
+    val disc = colorResource(R.color.ic_launcher_disc)
+    val tone = if (scheme.background.luminance() < 0.5f) scheme.inversePrimary else disc
+    val tint = remember(tone) { ColorFilter.tint(tone, BlendMode.Modulate) }
+
+    val transition = rememberInfiniteTransition(label = "translating")
     val clock by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(LOOP_MILLIS, easing = LinearEasing), RepeatMode.Restart),
         label = "clock"
     )
+    val t = if (running) clock else 0f
 
     Canvas(modifier.size(size)) {
-        val unit = this.size.minDimension / GRID
-        val corner = CornerRadius(BAR_WIDTH * unit / 2f)
-        fun bars(alpha: Float) {
-            for (i in REST.indices) {
-                val height = if (running) {
-                    // Each bar's own turn, a little after its neighbour's.
-                    val wave = 0.5f + 0.5f * sin(2f * PI.toFloat() * (clock - i * STAGGER))
-                    LOW + (PEAK[i] - LOW) * wave
-                } else {
-                    REST[i]
-                }
-                drawRoundRect(
-                    color = tone.copy(alpha = alpha),
-                    topLeft = Offset((CENTERS[i] - BAR_WIDTH / 2f) * unit, (GRID / 2f - height / 2f) * unit),
-                    size = Size(BAR_WIDTH * unit, height * unit),
-                    cornerRadius = corner
-                )
+        val r = this.size.minDimension / 2f * DISC
+        // Dialer's motion: the disc breathes and the sign rocks; still at rest.
+        val breath = if (running) 1f + 0.035f * sin(2f * PI.toFloat() * t * 2f) else 1f
+        val rock = if (running) 4f * sin(2f * PI.toFloat() * t * 4f) else 0f
+        fun mark(alpha: Float) {
+            scale(breath) {
+                layer(body, r, tint, alpha)
+                layer(shine, r, null, alpha)
+                rotate(rock) { layer(sign, r, null, alpha) }
             }
         }
         if (progress in 0.001f..0.999f) {
-            bars(0.25f)
-            clipRect(right = this.size.width * progress) { bars(1f) }
+            mark(0.25f)
+            val left = center.x - r
+            clipRect(left = left, right = left + 2f * r * progress) { mark(1f) }
         } else {
-            bars(1f)
+            mark(1f)
         }
     }
 }
 
-/** The icon's grid, its bars' centres and width, and their heights at rest (graphic_eq's own). */
-private const val GRID = 24f
-private const val BAR_WIDTH = 2.4f
-private val CENTERS = floatArrayOf(4f, 8f, 12f, 16f, 20f)
-private val REST = floatArrayOf(4f, 12f, 20f, 12f, 4f)
-private val PEAK = floatArrayOf(10f, 18f, 22f, 18f, 10f)
-private const val LOW = 4f
-private const val STAGGER = 0.11f
-private const val LOOP_MILLIS = 1100
+// Dialer's layer(): one bitmap drawn square and centred at the disc's size.
+private fun DrawScope.layer(image: ImageBitmap, r: Float, filter: ColorFilter?, alpha: Float) {
+    val side = (r * 2f).toInt()
+    drawImage(
+        image,
+        dstOffset = IntOffset((center.x - r).toInt(), (center.y - r).toInt()),
+        dstSize = IntSize(side, side),
+        alpha = alpha,
+        colorFilter = filter,
+        filterQuality = FilterQuality.High
+    )
+}
+
+/** The disc's share of the mark. */
+private const val DISC = 0.70f
+private const val LOOP_MILLIS = 2400
