@@ -31,8 +31,8 @@ android {
         applicationId = "com.yaz.language"
         minSdk = 31
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.1.2"
         // 64-bit ARM phones, and the x86_64 emulators (as Keyboard's app/build.gradle.kts lists its ABIs).
         ndk {
             abiFilters.clear()
