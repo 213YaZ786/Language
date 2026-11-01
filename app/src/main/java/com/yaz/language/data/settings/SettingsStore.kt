@@ -26,6 +26,13 @@ data class Settings(
     val speechModel: String = "",
     /** The model may be downloaded (the Network switch). */
     val networkAllowed: Boolean = true,
+    /**
+     * The translate screen's pair, kept as offline-translator keeps defaultTargetLanguageCode and
+     * defaultSourceLanguageCode in its AppSettings (DavidVentura/offline-translator, app/src/main/java/dev/davidv/translator/AppSettings.kt):
+     * a language code, empty for the phone's language (target) or Detect (source).
+     */
+    val targetLanguage: String = "",
+    val sourceLanguage: String = "",
     /** The microphone right was asked for once: after that, a refusal without a question is a refusal for good. */
     val micAsked: Boolean = false,
     /** Voice keyboard: listening starts when the keyboard comes up. */

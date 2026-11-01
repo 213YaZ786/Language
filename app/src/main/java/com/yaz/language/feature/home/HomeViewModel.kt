@@ -110,6 +110,13 @@ class HomeViewModel(context: Context, private val speech: VoiceSpeech) : ViewMod
         }
     }
 
+    /**
+     * Hands the words over to the text field: empties them and keeps the note, if any. Committed phrases leave the
+     * dictation once written, as HeliBoard's DictationController commits text to the editor and drops it from its own
+     * state (https://github.com/HeliBorg/HeliBoard, app/src/main/java/helium314/keyboard/latin/dictation/DictationController.kt).
+     */
+    fun takeWords() = _heard.update { it.copy(committed = "", partial = "") }
+
     /** Empties the words. */
     fun clear() = _heard.update { it.copy(committed = "", partial = "", note = null) }
 

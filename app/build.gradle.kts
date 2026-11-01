@@ -92,6 +92,9 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        // The translation service's AIDL files (src/main/aidl): AGP 8 and later turn AIDL off by default
+        // https://developer.android.com/build/releases/past-releases/agp-8-0-0-release-notes
+        aidl = true
     }
 
     packaging {

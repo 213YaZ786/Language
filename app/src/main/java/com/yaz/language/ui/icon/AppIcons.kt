@@ -91,6 +91,18 @@ object AppIcons {
     /** Clear the text around the selection: content/delete_sweep. */
     val DeleteSweep: ImageVector by lazy { build("DeleteSweep", "M15 16h4v2h-4zm0-8h7v2h-7zm0 4h6v2h-6zM3 18c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V8H3v10zM14 5h-3l-1-1H6L5 5H2v2h12z") }
 
+    /** Swap the two languages: action/swap_horiz. */
+    val SwapHoriz: ImageVector by lazy { build("SwapHoriz", "M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z") }
+
+    /** Paste: content/content_paste. */
+    val Paste: ImageVector by lazy { build("Paste", "M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z") }
+
+    /** Listen: av/volume_up. */
+    val VolumeUp: ImageVector by lazy { build("VolumeUp", "M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z") }
+
+    /** Models: file/file_download. */
+    val Download: ImageVector by lazy { build("Download", "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z") }
+
     /** Icons that point along the line of text, mirrored in right to left languages (Compose's AutoMirrored icons). */
     private val mirrored = setOf("ArrowBack", "Undo", "Redo", "Backspace", "Send", "ArrowRightAlt", "NavigateNext", "NavigateBefore", "KeyboardReturn")
 

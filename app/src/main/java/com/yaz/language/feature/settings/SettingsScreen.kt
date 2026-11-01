@@ -1,7 +1,6 @@
 package com.yaz.language.feature.settings
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -33,23 +32,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.yaz.language.BuildConfig
-import com.yaz.language.core.VoiceSpeech
+import com.yaz.language.R
 import com.yaz.language.core.update.UpdateMode
 import com.yaz.language.core.update.Updates
-import com.yaz.language.core.voice.SpeechModel
-import com.yaz.language.data.settings.Settings
 import com.yaz.language.data.settings.SettingsStore
 import com.yaz.language.navigation.LocalReadableInset
-import com.yaz.language.ui.component.BoldButton
 import com.yaz.language.ui.component.FloatingAction
 import com.yaz.language.ui.component.FloatingFrame
 import com.yaz.language.ui.component.FloatingTop
 import com.yaz.language.ui.component.GlassRadio
 import com.yaz.language.ui.component.GlassSwitch
-import com.yaz.language.ui.component.LoadingMark
 import com.yaz.language.ui.component.QuietButton
 import com.yaz.language.ui.component.ZoneAlertDialog
 import com.yaz.language.ui.component.ZoneSurface
@@ -67,9 +63,8 @@ import org.koin.compose.koinInject
  * https://github.com/soupslurpr/Transcribro/blob/main/app/src/main/kotlin/dev/soupslurpr/transcribro/ui/settings/SettingsStartScreen.kt
  */
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onGuide: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onGuide: () -> Unit, onModels: () -> Unit) {
     val store: SettingsStore = koinInject()
-    val speech: VoiceSpeech = koinInject()
     val settings by store.settings.collectAsState()
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
@@ -89,12 +84,14 @@ fun SettingsScreen(onBack: () -> Unit, onGuide: () -> Unit) {
         ) {
             Spacer(Modifier.height(padding.calculateTopPadding()))
 
-            Section("Engine") { EngineChoices(speech.model, settings) }
+            Section(stringResource(R.string.models_title)) {
+                SettingRow(title = stringResource(R.string.models_title), summary = stringResource(R.string.models_row_summary), onClick = onModels)
+            }
 
             Section("Network") {
                 SwitchRow(
                     title = "Network",
-                    summary = "Download the speech model",
+                    summary = stringResource(R.string.network_summary),
                     checked = settings.networkAllowed,
                     onChange = { on -> store.update { it.copy(networkAllowed = on) } }
                 )
@@ -131,7 +128,7 @@ fun SettingsScreen(onBack: () -> Unit, onGuide: () -> Unit) {
                 // The same first row in every app, as Dialer's "Guide" tile (YAZ/Dialer feature/settings/SettingsScreen.kt) and Store's (onGuide).
                 SettingRow(title = "Guide", summary = "See the welcome pages again", onClick = onGuide)
                 SettingRow(title = "Updates", summary = updatesLabel(settings.updates), onClick = { updatesOpen = true })
-                SettingRow(title = "Language ${BuildConfig.VERSION_NAME}", summary = "MIT License", onClick = null)
+                SettingRow(title = "Language ${BuildConfig.VERSION_NAME}", summary = "GPL-3.0 License", onClick = null)
                 SettingRow(
                     title = "Source code",
                     summary = "github.com/213YaZ786/Language",
@@ -141,6 +138,11 @@ fun SettingsScreen(onBack: () -> Unit, onGuide: () -> Unit) {
                     title = "Transcribro",
                     summary = "soupslurpr, ISC License",
                     onClick = { uriHandler.openUri("https://github.com/soupslurpr/Transcribro") }
+                )
+                SettingRow(
+                    title = "Offline Translator",
+                    summary = "David Ventura, GPL-3.0 License",
+                    onClick = { uriHandler.openUri("https://github.com/DavidVentura/offline-translator") }
                 )
                 SettingRow(
                     title = "Speech engine",
@@ -190,70 +192,9 @@ fun SettingsScreen(onBack: () -> Unit, onGuide: () -> Unit) {
     ) { updatesOpen = false }
 }
 
-/**
- * The ways to write speech out: the phone's own recognizer when it has the language (nothing to get), and the two
- * Whisper models, each with its size and what it is good at, a radio on each. Under them, where the chosen model
- * stands with its one action: Download, its progress with Cancel, or on the phone with Remove. After SMS's ModelChoices
- * and SpeechModelPanel (feature/thread/Voice.kt, https://github.com/213YaZ786/SMS).
- */
-@Composable
-private fun EngineChoices(model: SpeechModel, settings: Settings) {
-    val haptics = rememberHaptics()
-    val state by model.state.collectAsState()
-    val system by model.system.collectAsState()
-    // The choice is read from the settings, so a pick redraws the radios.
-    @Suppress("UNUSED_VARIABLE") val chosen = settings.speechModel
-    val fetching = state is SpeechModel.State.Fetching
-    val metered = remember { model.metered() }
-
-    if (system) {
-        SettingRow(
-            title = "Phone recognizer",
-            summary = "Nothing to get",
-            onClick = { if (!fetching) model.chooseSystem() },
-            trailing = { GlassRadio(selected = model.usesSystem, onClick = null) }
-        )
-    }
-    listOf(SpeechModel.BASE, SpeechModel.SMALL).forEach { pin ->
-        SettingRow(
-            title = "Whisper ${pin.label}",
-            // Joined with a comma, as AOSP Dialer's CallLogEntryText.java (https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calllogutils/CallLogEntryText.java).
-            summary = "${pin.bytes / 1_000_000} MB, ${pin.quality}",
-            onClick = { if (!fetching) model.choose(pin) },
-            trailing = { GlassRadio(selected = !model.usesSystem && model.pin == pin, onClick = null) }
-        )
-    }
-    if (!model.usesSystem) {
-        ListItem(
-            headlineContent = {
-                when (val s = state) {
-                    is SpeechModel.State.Fetching -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        LoadingMark(size = 28.dp, progress = s.done)
-                        Text("Getting it, ${(s.done * 100).toInt()}%")
-                    }
-                    SpeechModel.State.Ready -> Text("On the phone")
-                    SpeechModel.State.Failed -> Text("Could not get it", color = MaterialTheme.colorScheme.error)
-                    SpeechModel.State.Missing ->
-                        if (metered) Text("On mobile data", color = MaterialTheme.colorScheme.error) else Text("Not on the phone")
-                }
-            },
-            trailingContent = {
-                when (state) {
-                    is SpeechModel.State.Fetching -> QuietButton(onClick = { haptics.tick(); model.cancel() }) { Text("Cancel") }
-                    SpeechModel.State.Ready -> QuietButton(onClick = { haptics.reject(); model.remove() }) { Text("Remove") }
-                    SpeechModel.State.Missing, SpeechModel.State.Failed -> BoldButton(onClick = { haptics.done(); model.fetch() }) {
-                        Text(if (state == SpeechModel.State.Failed) "Retry" else "Download, ${model.pin.bytes / 1_000_000} MB")
-                    }
-                }
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-        )
-    }
-}
-
 /** A titled group of rows on one rounded zone. Copied from Calculator's SettingsScreen (Section). */
 @Composable
-private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
+internal fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
     Text(
         title,
         style = MaterialTheme.typography.titleMedium,
@@ -268,7 +209,7 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
 
 /** A row of a section. Copied from Calculator's SettingsScreen (SettingRow). */
 @Composable
-private fun SettingRow(title: String, summary: String?, onClick: (() -> Unit)?, quiet: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
+internal fun SettingRow(title: String, summary: String?, onClick: (() -> Unit)?, quiet: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
     val haptics = rememberHaptics()
     ListItem(
         headlineContent = { Text(title, color = MaterialTheme.colorScheme.onSurface) },

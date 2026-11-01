@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.yaz.language.data.settings.SettingsStore
 import com.yaz.language.feature.home.HomeScreen
+import com.yaz.language.feature.models.ModelsScreen
 import com.yaz.language.feature.settings.SettingsScreen
 import com.yaz.language.feature.welcome.WelcomeScreen
 import org.koin.compose.koinInject
@@ -17,6 +18,7 @@ object Routes {
     const val WELCOME = "welcome"
     const val HOME = "home"
     const val SETTINGS = "settings"
+    const val MODELS = "models"
 }
 
 /**
@@ -38,12 +40,23 @@ fun LanguageApp() {
             })
         }
         composable(Routes.HOME) {
-            ReadableScroll { HomeScreen(onSettings = { nav.navigate(Routes.SETTINGS) }) }
+            ReadableScroll {
+                HomeScreen(
+                    onSettings = { nav.navigate(Routes.SETTINGS) },
+                    onModels = { nav.navigate(Routes.MODELS) }
+                )
+            }
+        }
+        composable(Routes.MODELS) {
+            ReadableScroll {
+                ModelsScreen(onBack = { nav.popBackStack() }, onSettings = { nav.navigate(Routes.SETTINGS) })
+            }
         }
         composable(Routes.SETTINGS) {
             ReadableScroll {
                 SettingsScreen(
                     onBack = { nav.popBackStack() },
+                    onModels = { nav.navigate(Routes.MODELS) },
                     // As Store's StoreApp.kt: the welcome route again, the home below it dropped (its end opens the home).
                     onGuide = { nav.navigate(Routes.WELCOME) { popUpTo(Routes.HOME) { inclusive = true } } }
                 )

@@ -2,4 +2,95 @@
     <string name="app_name">Language</string>
     <!-- The voice keyboard's name in the keyboard picker (its subtype has no language to name it). -->
     <string name="ime_subtype">Voice typing</string>
+
+    <!-- Home: the translate screen -->
+    <string name="models">Models</string>
+    <string name="settings">Settings</string>
+    <string name="detect">Detect</string>
+    <string name="detected_name">%1$s, detected</string>
+    <string name="swap_languages">Swap languages</string>
+    <string name="pick_source">Translate from</string>
+    <string name="pick_target">Translate to</string>
+    <string name="on_the_phone_name">%1$s, on the phone</string>
+    <string name="input_hint">Enter text</string>
+    <string name="paste">Paste</string>
+    <string name="dictate">Dictate</string>
+    <string name="stop">Stop</string>
+    <string name="clear">Clear</string>
+    <string name="copy">Copy</string>
+    <string name="listen">Listen</string>
+    <string name="share">Share</string>
+    <string name="detected_chip">Detected: %1$s, translate from %1$s</string>
+    <string name="translating">Translating</string>
+    <string name="translate_failed">Could not translate this text</string>
+    <string name="choose_source">Choose the language of the text</string>
+    <string name="unavailable_pair">This phone cannot translate from %1$s to %2$s</string>
+    <string name="no_voice">This phone has no voice for %1$s</string>
+    <string name="need_line">To translate from %1$s to %2$s, this phone needs %3$s.</string>
+    <string name="and_join">%1$s and %2$s</string>
+    <string name="get_size">Get, %1$s</string>
+    <string name="getting_percent">Getting it, %1$d%%</string>
+    <string name="retry">Retry</string>
+    <string name="cancel">Cancel</string>
+    <string name="could_not_get">Could not get it</string>
+    <string name="network_off_get">The network is off. Turn it on in Settings to get %1$s.</string>
+
+    <!-- Models -->
+    <string name="models_title">Models</string>
+    <string name="section_speech">Speech</string>
+    <string name="section_languages">Languages</string>
+    <string name="microphone">Microphone</string>
+    <string name="allowed">Allowed</string>
+    <string name="not_allowed">Not allowed</string>
+    <string name="allow">Allow</string>
+    <string name="voice_input">Voice input</string>
+    <string name="voice_input_yes">Language is the phone\'s voice input</string>
+    <string name="voice_input_no">Not the phone\'s voice input</string>
+    <string name="choose">Choose</string>
+    <string name="voice_keyboard">Voice keyboard</string>
+    <string name="turned_on">Turned on</string>
+    <string name="not_turned_on">Not turned on</string>
+    <string name="activate">Activate</string>
+    <string name="done">Done</string>
+    <string name="english_pivot">Always needed, every translation goes through English</string>
+    <string name="on_the_phone_size">On the phone, %1$s</string>
+    <string name="language_row_size">%1$s</string>
+    <string name="network_off_row">The network is off</string>
+    <string name="get">Get</string>
+    <string name="delete">Delete</string>
+    <string name="delete_title">Delete %1$s?</string>
+    <string name="delete_text">Translations from and to it stop until you get it again. It frees %1$s.</string>
+    <string name="back">Back</string>
+
+    <!-- Settings -->
+    <string name="models_row_summary">Speech and languages</string>
+    <string name="network_summary">Download speech and language models</string>
+
+    <!-- The permission an app holds to use Language's translation service (signature level). -->
+    <string name="translate_permission_label">Translate text with Language</string>
+    <string name="translate_permission_description">Sends text to Language to be translated on the phone.</string>
+
+    <!-- The translation service's errors, returned to the app that asked. -->
+    <string name="aidl_target_unavailable">Target language not available</string>
+    <string name="aidl_text_too_long">Text too long to translate</string>
+
+    <!-- The text panel: "Translate" in the text selection of an app, and text shared to Language. -->
+    <string name="process_text_label">Translate</string>
+    <string name="process_close">Close</string>
+    <string name="process_from_to">%1$s to %2$s</string>
+    <string name="process_working">Translating</string>
+    <string name="process_copy">Copy</string>
+    <string name="process_copied">Copied</string>
+    <string name="process_replace">Replace</string>
+    <string name="process_share">Share</string>
+    <string name="process_listen">Listen</string>
+    <string name="process_open">Open in Language</string>
+    <string name="process_get_languages">Get languages</string>
+    <string name="process_get_language">To translate this text, get the language %1$s.</string>
+    <string name="process_not_recognised">The language of this text was not recognised.</string>
+    <string name="process_clipped">Only the first 50 000 characters are translated.</string>
+    <string name="process_failed">Translation failed.</string>
+    <string name="process_no_voice">No voice for %1$s on this phone.</string>
+    <string name="process_too_long_aloud">Too long to read aloud.</string>
+    <string name="process_voice_failed">Reading aloud failed.</string>
 </resources>

@@ -14,6 +14,22 @@
     <!-- The note after an update and while one downloads. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- The right to use the translation service. Signature level: only our apps, signed with our key, hold it
+         (SMS and Keyboard declare uses-permission). Its name is a contract, never renamed. -->
+    <permission
+        android:name="com.yaz.language.permission.TRANSLATE"
+        android:label="@string/translate_permission_label"
+        android:description="@string/translate_permission_description"
+        android:protectionLevel="signature" />
+
+    <!-- Android 11 package visibility: the panel's Listen finds the phone's speech engine
+         https://developer.android.com/reference/android/speech/tts/TextToSpeech -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".LanguageApplication"
         android:allowBackup="false"
@@ -70,6 +86,45 @@
                 <data android:mimeType="application/ogg" />
             </intent-filter>
         </activity>
+
+        <!-- "Translate" in the text selection of any app (PROCESS_TEXT) and text shared in (SEND), as a glass panel over
+             the app, after offline-translator's ProcessTextActivity (manifest lines 58-80): its TRANSLATE, OPEN_POPUP,
+             image and document entries are not taken. -->
+        <activity
+            android:name=".processtext.ProcessTextActivity"
+            android:exported="true"
+            android:label="@string/process_text_label"
+            android:theme="@style/Theme.Language.Panel"
+            android:excludeFromRecents="true"
+            android:launchMode="standard"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode">
+            <intent-filter
+                android:icon="@mipmap/ic_launcher"
+                android:label="@string/process_text_label">
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <action android:name="android.intent.action.PROCESS_TEXT_READONLY" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- The translation service other apps of ours bind (Modules' translate kit binds this action on
+             com.yaz.language and checks the signature). Bound only: it lives while a client is bound. The permission
+             guards the bind; AidlTranslationService checks the caller again inside every call. The action and the
+             permission names are a contract with SMS and Keyboard. -->
+        <service
+            android:name=".translate.aidl.AidlTranslationService"
+            android:exported="true"
+            android:permission="com.yaz.language.permission.TRANSLATE">
+            <intent-filter>
+                <action android:name="dev.davidv.translator.ITranslationService" />
+            </intent-filter>
+        </service>
 
         <!-- The phone's speech recognizer (Settings > Voice input), as Transcribro declares its own: only apps that may
              record (RECORD_AUDIO) can bind it. -->
