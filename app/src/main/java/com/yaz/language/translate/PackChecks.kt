@@ -104,7 +104,9 @@ fun resolveUnder(base: File, relative: String): File {
     }
     val root = base.canonicalFile
     val target = File(root, relative).canonicalFile
-    if (!target.path.startsWith(root.path + File.separator)) throw PackSecurityException("Refused path: outside the folder")
+    // Compared name by name (java.nio.file.Path.startsWith, https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/file/Path.html#startsWith(java.nio.file.Path)):
+    // a string prefix of root + "/" refused everything under "/" (the app process's working folder), "//".
+    if (target == root || !target.toPath().startsWith(root.toPath())) throw PackSecurityException("Refused path: outside the folder")
     return target
 }
 
