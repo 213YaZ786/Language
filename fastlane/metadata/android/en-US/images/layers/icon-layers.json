@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "ground": {"day": "system_accent1_500", "night": "system_accent1_500"},
+  "layers": [
+    {"png": "language_body.png", "sha256": "df20e44950f732b9867e66928671f994c43085f3dabd39954578af80bf2bcd2c", "day": "system_accent1_500", "night": "system_accent1_500"},
+    {"png": "language_shine.png", "sha256": "7874d9e1463788e0b40eabdcd912286012242795d5675c6dbf8d0329b91ea322"},
+    {"png": "language_sign.png", "sha256": "b6129ba3f59a810d333812758fcfcd0b3ebf3c9bb2a79da00784cd7687e027e2"}
+  ]
+}

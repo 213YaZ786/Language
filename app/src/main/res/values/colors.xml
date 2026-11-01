@@ -1,5 +1,6 @@
 <resources>
-    <!-- Temporary launcher icon on the wallpaper's accent, as Calculator's launcher colours
-         (res/values/colors.xml); the real icon comes later. -->
+    <!-- The launcher icon follows the wallpaper, as Launcher's, Store's, Dialer's, SMS's and Contacts' do: the disc in the accent.
+         The ground is the disc's own tone (the disc's rim grey is white), so no pale ring shows around it, whatever the mask. -->
+    <color name="ic_launcher_disc">@android:color/system_accent1_500</color>
     <color name="ic_launcher_background">@android:color/system_accent1_500</color>
 </resources>

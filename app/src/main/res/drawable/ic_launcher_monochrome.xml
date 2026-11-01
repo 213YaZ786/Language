@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The themed icon: Material Symbols "translate" (rounded, weight 700, Apache-2.0,
+     https://github.com/google/material-design-icons) in one colour, as the system tints it; 40 dp wide, centred on the
+     108 dp canvas as Modules/icons/language/render.py lays the sign. Structure as Launcher's ic_launcher_monochrome.xml. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.04315"
+        android:scaleY="0.04315"
+        android:translateX="33.5685"
+        android:translateY="74.7335">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="m581-140-22 54q-5 14-17 22.5T515-55q-25 0-39-19.5t-6-43.5l150-410q6-18 21.5-29.5T677-569h45q19 0 35 11.5t22 29.5l149 408q9 25-5.5 45T882-55q-15 0-28-9t-18-23l-21-53H581ZM345-364 183-202q-15 14-33.5 14T117-203q-15-14-15-33t15-33l163-163q-58-61-94.5-116.5T134-651h108q10 31 37 69t69 82q44-48 80-112t50-119H57q-20 0-33.5-13.5T10-778q0-20 13.5-34T57-826h243v-32q0-20 13.5-34t33.5-14q20 0 34 14t14 34v32h242q20 0 34 14t14 34q0 20-14 33.5T637-731h-55q-18 74-64 155T413-432l66 67-37 102-97-101Zm268 134h170l-85-228-85 228Z" />
+    </group>
+</vector>

@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Temporary launcher glyph: "graphic_eq" of Material Icons (Apache License 2.0)
-     https://github.com/google/material-design-icons/blob/master/src/device/graphic_eq/materialicons/24px.svg
-     doubled and centred in the adaptive icon's 108 dp canvas, inside its 66 dp safe zone. Also the monochrome layer. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <group android:translateX="30" android:translateY="30" android:scaleX="2" android:scaleY="2">
-        <path android:fillColor="#FFFFFFFF"
-            android:pathData="M7 18h2V6H7v12zm4 4h2V2h-2v20zm-8-8h2v-4H3v4zm12 4h2V6h-2v12zm4-8v4h2v-4h-2z" />
-    </group>
-</vector>
+<!-- Language's launcher glyph, as Launcher's: a glossy disc filling the launcher's circle, with Material Symbols'
+     "translate" sign, in the user's ivory 3D relief (Modules/icons/language/export.py writes the layers).
+     The disc's grey body is multiplied by a tone of the wallpaper's accent, its white rim lights it, untinted,
+     and the sign lies on top as drawn. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <bitmap
+            android:src="@drawable/language_body"
+            android:tint="@color/ic_launcher_disc"
+            android:tintMode="multiply" />
+    </item>
+    <item android:drawable="@drawable/language_shine" />
+    <item android:drawable="@drawable/language_sign" />
+</layer-list>
