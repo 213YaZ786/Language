@@ -125,7 +125,9 @@ jobs:
       - name: Latest compatible dependencies
         working-directory: engine/bindings
         run: |
-          cargo update
+          # The newest versions, not only those for the crate's minimum Rust 1.88: we build with the latest
+          # Rust (https://doc.rust-lang.org/cargo/reference/config.html#resolverincompatible-rust-versions).
+          CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS=allow cargo update
           # The engine's own git sources stay at offline-translator v0.8.7's revisions: its bindings are
           # written for them (translator-rs b0407af moved the file staging into Rust and dropped
           # plan_zip_extraction). Only crates.io crates move. `cargo update -p <pkg> --precise <rev>`
