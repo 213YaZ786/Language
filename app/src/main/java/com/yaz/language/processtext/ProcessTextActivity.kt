@@ -109,7 +109,7 @@ import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
 /** What the panel shows. Only [Done] carries text, and it lives in memory. */
-private sealed interface Ui {
+internal sealed interface Ui {
     data object Working : Ui
 
     /** [from] and [to] are the languages' names; [toCode] is the target's catalogue code, for the voice. */
@@ -343,7 +343,7 @@ class ProcessTextActivity : ComponentActivity() {
  * outside cancels. Languages and the original are text, not zones (nothing to tap); only the actions are glass buttons.
  */
 @Composable
-private fun PanelSheet(
+internal fun PanelSheet(
     shown: MutableTransitionState<Boolean>,
     state: Ui,
     note: String?,

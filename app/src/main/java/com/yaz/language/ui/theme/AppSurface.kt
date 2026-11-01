@@ -37,7 +37,7 @@ fun ComponentActivity.AppSurface(content: @Composable () -> Unit) {
     }
 
     AppTheme(darkTheme = dark) {
-        val look = rememberGlassLook(MaterialTheme.colorScheme, true)
+        val look = rememberGlassLook(MaterialTheme.colorScheme, true, quiet = true)
         // Text and icons take the theme's colour in every window: without it
         // Compose draws them black, unreadable on a dark ground.
         CompositionLocalProvider(LocalGlass provides look, LocalContentColor provides MaterialTheme.colorScheme.onBackground) {

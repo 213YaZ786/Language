@@ -62,9 +62,73 @@
     <string name="delete_text">Translations from and to it stop until you get it again. It frees %1$s.</string>
     <string name="back">Back</string>
 
+    <!-- Home: the text field's cap -->
+    <string name="input_clipped">Only the first 50 000 characters are translated.</string>
+
+    <!-- Models: what the lists say besides the shared words above -->
+    <string name="phone_recognizer">Phone recognizer</string>
+    <string name="nothing_to_get">Nothing to get</string>
+    <string name="whisper_name">Whisper %1$s</string>
+    <string name="whisper_summary">%1$d MB, %2$s</string>
+    <string name="size_mb">%1$d MB</string>
+    <string name="on_the_phone">On the phone</string>
+    <string name="remove">Remove</string>
+    <string name="on_mobile_data">On mobile data</string>
+    <string name="not_on_the_phone">Not on the phone</string>
+
     <!-- Settings -->
     <string name="models_row_summary">Speech and languages</string>
     <string name="network_summary">Download speech and language models</string>
+    <string name="section_downloads">Downloads</string>
+    <string name="section_voice_keyboard">Voice keyboard</string>
+    <string name="section_about">About</string>
+    <string name="network">Network</string>
+    <string name="ime_auto_start_name">Auto-start</string>
+    <string name="ime_auto_start_title">Auto-start recognition</string>
+    <string name="ime_auto_start_summary">Start listening when the keyboard comes up</string>
+    <string name="ime_auto_stop_name">Auto-stop</string>
+    <string name="ime_auto_stop_title">Auto-stop recognition</string>
+    <string name="ime_auto_stop_summary">Stop listening when speech stops</string>
+    <string name="ime_auto_send_name">Auto-send</string>
+    <string name="ime_auto_send_title">Auto-send transcription</string>
+    <string name="ime_auto_send_summary">Send the words when speech stops</string>
+    <string name="ime_switch_back_name">Previous keyboard</string>
+    <string name="ime_switch_back_title">Auto-switch to the previous keyboard</string>
+    <string name="ime_switch_back_summary">Go back to it when listening ends</string>
+    <string name="guide">Guide</string>
+    <string name="guide_value">Show again</string>
+    <string name="guide_summary">See the welcome pages again</string>
+    <string name="updates">Updates</string>
+    <string name="updates_off">Off</string>
+    <string name="updates_notify">Notify me</string>
+    <string name="updates_install">Install automatically</string>
+    <string name="about_title">Language %1$s</string>
+    <string name="about_license">GPL-3.0 License</string>
+    <string name="source_code">Source code</string>
+    <string name="credit_transcribro">Transcribro</string>
+    <string name="credit_transcribro_value">ISC License</string>
+    <string name="credit_transcribro_summary">soupslurpr, ISC License</string>
+    <string name="credit_translator">Offline Translator</string>
+    <string name="credit_translator_value">GPL-3.0 License</string>
+    <string name="credit_translator_summary">David Ventura, GPL-3.0 License</string>
+    <string name="credit_engine">Speech engine</string>
+    <string name="credit_engine_value">whisper.cpp, MIT</string>
+    <string name="credit_engine_summary">whisper.cpp, MIT License</string>
+    <string name="credit_models">Speech models</string>
+    <string name="credit_models_value">OpenAI Whisper, MIT</string>
+    <string name="credit_models_summary">OpenAI Whisper, MIT License</string>
+    <string name="credit_vad">Voice detector</string>
+    <string name="credit_vad_value">Silero VAD, MIT</string>
+    <string name="credit_vad_summary">Silero VAD, MIT License</string>
+    <string name="credit_android">Android</string>
+    <string name="credit_android_value">Apache License 2.0</string>
+    <string name="credit_android_summary">Android Open Source Project, Apache License 2.0</string>
+    <string name="credit_konele">Kõnele speechutils</string>
+    <string name="credit_konele_value">Apache License 2.0</string>
+    <string name="credit_konele_summary">Kõnele speechutils, Apache License 2.0</string>
+    <string name="credit_icons">Icons</string>
+    <string name="credit_icons_value">Apache License 2.0</string>
+    <string name="credit_icons_summary">Material Icons by Google, Apache License 2.0</string>
 
     <!-- The permission an app holds to use Language's translation service (signature level). -->
     <string name="translate_permission_label">Translate text with Language</string>

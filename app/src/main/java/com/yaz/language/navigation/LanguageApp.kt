@@ -1,8 +1,12 @@
 package com.yaz.language.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -27,10 +31,12 @@ object Routes {
  * https://github.com/213YaZ786/Calculator/blob/main/app/src/main/java/com/yaz/calculator/navigation/CalculatorApp.kt
  */
 @Composable
-fun LanguageApp() {
+fun LanguageApp(request: ModelsRequest? = null, onHandled: () -> Unit = {}) {
     val nav = rememberNavController()
     val store: SettingsStore = koinInject()
     val settings by store.settings.collectAsState()
+    // The language Models should show, from the text panel's "Get languages"; cleared once its row was shown.
+    var focus by remember { mutableStateOf<String?>(null) }
 
     NavHost(nav, startDestination = if (settings.welcomed) Routes.HOME else Routes.WELCOME) {
         composable(Routes.WELCOME) {
@@ -49,7 +55,12 @@ fun LanguageApp() {
         }
         composable(Routes.MODELS) {
             ReadableScroll {
-                ModelsScreen(onBack = { nav.popBackStack() }, onSettings = { nav.navigate(Routes.SETTINGS) })
+                ModelsScreen(
+                    onBack = { nav.popBackStack() },
+                    onSettings = { nav.navigate(Routes.SETTINGS) },
+                    focus = focus,
+                    onFocused = { focus = null }
+                )
             }
         }
         composable(Routes.SETTINGS) {
@@ -63,5 +74,21 @@ fun LanguageApp() {
             }
         }
     }
+
+    // Models opens on a request from outside (MainActivity.onCreate or onNewIntent), after the NavHost has its graph:
+    // navigate with launchSingleTop, so a second request while Models is in front reuses it, as Navigation's
+    // "Navigate to a destination" documents https://developer.android.com/guide/navigation/use-graph/navigate
+    LaunchedEffect(request) {
+        val asked = request ?: return@LaunchedEffect
+        focus = asked.language
+        nav.navigate(Routes.MODELS) { launchSingleTop = true }
+        onHandled()
+    }
     PlainBack(nav)
 }
+
+/**
+ * A request to open Models: the catalogue code of the language to show, null for Models plainly. [token] makes two
+ * requests for the same language different, so the second one is handled too.
+ */
+data class ModelsRequest(val language: String?, val token: Long)

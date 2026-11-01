@@ -103,8 +103,50 @@ object AppIcons {
     /** Models: file/file_download. */
     val Download: ImageVector by lazy { build("Download", "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z") }
 
+    // The icons of Settings' tiles, copied from SMS's ui/icon/AppIcons.kt (Info, Code, Play, Language, Translate):
+    // Material Icons filled (Apache-2.0), https://github.com/google/material-design-icons/tree/master/src ;
+    // Language and Translate are Material Symbols (960 grid, symbol() below).
+    /** The version: the circled i. */
+    val Info: ImageVector by lazy {
+        build(
+            "Info",
+            "M11,7h2v2h-2zM11,11h2v6h-2zM12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10" +
+                "S17.52,2 12,2zM12,20c-4.41,0 -8,-3.59 -8,-8s3.59,-8 8,-8 8,3.59 8,8 -3.59,8 -8,8z"
+        )
+    }
+
+    /** The source code: action/code. */
+    val Code: ImageVector by lazy { build("Code", "M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z") }
+
+    /** The guide: av/play_arrow. */
+    val Play: ImageVector by lazy { build("Play", "M8 5v14l11-7z") }
+
+    /** The Network switch: the globe. */
+    val Language: ImageVector by lazy {
+        symbol(
+            "Language",
+            "M323-111.5Q250-143 196-197t-85-127.5Q80-398 80-482t31-156.5Q142-711 196-765t127-84.5Q396-880 480-880t157 30.5Q710-819 764-765t85 126.5Q880-566 880-482t-31 157.5Q818-251 764-197t-127 85.5Q564-80 480-80t-157-31.5ZM480-138q35-36 58.5-82.5T577-331H384q14 60 37.5 108t58.5 85Zm-85-12q-25-38-43-82t-30-99H172q38 71 88 111.5T395-150Zm171-1q72-23 129.5-69T788-331H639q-13 54-30.5 98T566-151ZM152-391h159q-3-27-3.5-48.5T307-482q0-25 1-44.5t4-43.5H152q-7 24-9.5 43t-2.5 45q0 26 2.5 46.5T152-391Zm221 0h215q4-31 5-50.5t1-40.5q0-20-1-38.5t-5-49.5H373q-4 31-5 49.5t-1 38.5q0 21 1 40.5t5 50.5Zm275 0h160q7-24 9.5-44.5T820-482q0-26-2.5-45t-9.5-43H649q3 35 4 53.5t1 34.5q0 22-1.5 41.5T648-391Zm-10-239h150q-33-69-90.5-115T565-810q25 37 42.5 80T638-630Zm-254 0h194q-11-53-37-102.5T480-820q-32 27-54 71t-42 119Zm-212 0h151q11-54 28-96.5t43-82.5q-75 19-131 64t-91 115Z"
+        )
+    }
+
+    /** Translate: Material Symbols translate (rounded), github.com/marella/material-symbols svg-400/rounded/translate.svg. */
+    val Translate: ImageVector by lazy {
+        symbol(
+            "Translate",
+            "m584-197-38 98q-3 8-10.5 13.5T519-80q-16 0-25-13t-3-28l160-415q4-11 13.5-17.5T685-560h29q11 0 20.5 6.5T748-536l160 415q6 15-3 28t-25 13q-10 0-17.5-5.5T852-100l-38-97H584ZM363-401 183-222q-9 8-21 8.5t-21-8.5q-9-9-9-21t9-21l180-180q-51-53-85.5-107.5T183-660h65q16 43 43.5 85t72.5 88q46-48 85-117.5T505-740H70q-13 0-21.5-8.5T40-770q0-13 8.5-21.5T70-800h260v-50q0-13 8.5-21.5T360-880q13 0 21.5 8.5T390-850v50h260q13 0 21.5 8.5T680-770q0 13-8.5 21.5T650-740h-83q-17 78-61.5 159.5T406-443l102 104-24 63-121-125Zm242 149h188l-94-248-94 248Z"
+        )
+    }
+
     /** Icons that point along the line of text, mirrored in right to left languages (Compose's AutoMirrored icons). */
     private val mirrored = setOf("ArrowBack", "Undo", "Redo", "Backspace", "Send", "ArrowRightAlt", "NavigateNext", "NavigateBefore", "KeyboardReturn")
+
+    // SMS's symbol(): a 960-grid Material Symbols path, as Passwords' AppIcons.symbol.
+    private fun symbol(name: String, pathData: String): ImageVector =
+        ImageVector.Builder(name = name, defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 960f, viewportHeight = 960f).apply {
+            addGroup(translationY = 960f)
+            addPath(pathData = PathParser().parsePathString(pathData).toNodes(), fill = SolidColor(Color.Black))
+            clearGroup()
+        }.build()
 
     // Calculator's build(): a 24dp vector from one path, ArrowBack mirrored in right to left languages.
     private fun build(name: String, pathData: String): ImageVector =

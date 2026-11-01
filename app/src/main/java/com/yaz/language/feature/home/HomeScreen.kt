@@ -45,8 +45,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -63,6 +65,7 @@ import com.yaz.language.navigation.LocalReadableInset
 import com.yaz.language.translate.DownloadStatus
 import com.yaz.language.translate.Language
 import com.yaz.language.translate.inFlightProgress
+import com.yaz.language.translate.aidl.TranslateGuards
 import com.yaz.language.translate.localizedName
 import com.yaz.language.ui.component.BoldButton
 import com.yaz.language.ui.component.ChoiceDialog
@@ -130,11 +133,19 @@ fun HomeScreen(
     }
     LaunchedEffect(heard.note) { if (heard.note != null) haptics.reject() }
 
+    // Everything that reaches the field (typed, pasted, dictated) goes through the cap, and the screen says when it cut.
+    var cut by rememberSaveable { mutableStateOf(false) }
+    val enter: (String) -> Unit = { raw ->
+        val capped = capInput(raw)
+        cut = capped.cut
+        translate.setText(capped.text)
+    }
+
     // The dictation fills the field: the words come after the text that was there when the mic was tapped.
     var base by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(heard.phase, heard.committed, heard.partial) {
         val before = base ?: return@LaunchedEffect
-        if (heard.text.isNotBlank()) translate.setText(joinWords(before, heard.text))
+        if (heard.text.isNotBlank()) enter(joinWords(before, heard.text))
         if (heard.phase == Phase.IDLE) {
             base = null
             viewModel.takeWords()
@@ -153,74 +164,39 @@ fun HomeScreen(
     }
 
     var picker by rememberSaveable { mutableIntStateOf(PICK_NONE) }
-    val pageScroll = rememberScrollState()
-    FloatingFrame(
-        bottom = 0.dp,
-        scroll = pageScroll,
-        top = {
-            FloatingTop(
-                "Language",
-                leading = { FloatingAction(AppIcons.Download, stringResource(R.string.models), onModels) },
-                trailing = { FloatingAction(AppIcons.Settings, stringResource(R.string.settings), onSettings) }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(pageScroll)
-                .padding(horizontal = LocalReadableInset.current + 16.dp)
-        ) {
-            Spacer(Modifier.height(padding.calculateTopPadding()))
-            Spacer(Modifier.height(8.dp))
-
-            LanguageBar(
-                ui = ui,
-                onSource = { haptics.tick(); picker = PICK_SOURCE },
-                onTarget = { haptics.tick(); picker = PICK_TARGET },
-                onSwap = { if (translate.swap()) haptics.done() else haptics.reject() }
-            )
-
-            Spacer(Modifier.height(16.dp))
-            InputCard(
-                ui = ui,
-                input = input,
-                heard = heard,
-                onInput = translate::setText,
-                onPaste = { haptics.tick(); pastedText(context)?.let(translate::setText) },
-                onMic = { haptics.tick(); onMic() },
-                onClear = { haptics.tick(); translate.clear() },
-                onDetected = { haptics.tick(); translate.pickSource(ui.detected) }
-            )
-
-            if (input.isNotBlank()) {
-                Spacer(Modifier.height(16.dp))
-                ResultCard(
-                    ui = ui,
-                    speaking = speaking,
-                    noVoice = noVoice,
-                    onCopy = { ui.output?.let { copyText(context, it); haptics.done() } },
-                    onListen = {
-                        haptics.tick()
-                        val text = ui.output
-                        val language = ui.target
-                        if (speaking) speaker.stop() else if (text != null && language != null) speaker.speak(text, language.locale())
-                    },
-                    onShare = {
-                        haptics.tick()
-                        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, ui.output.orEmpty())
-                        context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    },
-                    onGet = { haptics.done(); translate.get(ui.toGet) },
-                    onCancel = { haptics.tick(); translate.cancel(ui.toGet) },
-                    onSettings = { haptics.tick(); onSettings() }
-                )
-            }
-
-            Spacer(Modifier.height(24.dp))
-            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-        }
-    }
+    HomeContent(
+        ui = ui,
+        input = input,
+        heard = heard,
+        clipped = cut,
+        hasClipboardText = rememberClipboardHasText(),
+        speaking = speaking,
+        noVoice = noVoice,
+        onModels = onModels,
+        onSettings = onSettings,
+        onSource = { haptics.tick(); picker = PICK_SOURCE },
+        onTarget = { haptics.tick(); picker = PICK_TARGET },
+        onSwap = { if (translate.swap()) haptics.done() else haptics.reject() },
+        onInput = enter,
+        onPaste = { haptics.tick(); pastedText(context)?.let(enter) },
+        onMic = { haptics.tick(); onMic() },
+        onClear = { haptics.tick(); translate.clear() },
+        onDetected = { haptics.tick(); translate.pickSource(ui.detected) },
+        onCopy = { ui.output?.let { copyText(context, it); haptics.done() } },
+        onListen = {
+            haptics.tick()
+            val text = ui.output
+            val language = ui.target
+            if (speaking) speaker.stop() else if (text != null && language != null) speaker.speak(text, language.locale())
+        },
+        onShare = {
+            haptics.tick()
+            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, ui.output.orEmpty())
+            context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        },
+        onGet = { haptics.done(); translate.get(ui.toGet) },
+        onCancel = { haptics.tick(); translate.cancel(ui.toGet) }
+    )
 
     // The language lists, offline-translator's LanguageSelector dropdown as Modules' ChoiceDialog: the Detect entry first
     // for the source, then the languages on the phone, then the others.
@@ -257,6 +233,112 @@ fun HomeScreen(
 private const val PICK_NONE = 0
 private const val PICK_SOURCE = 1
 private const val PICK_TARGET = 2
+
+/**
+ * The text that goes into the field, and whether it was cut. A plain holder, as TranslateGuards.Clip (this app's
+ * translate/aidl/TranslateGuards.kt) is for the panel's text.
+ */
+internal class Capped(val text: String, val cut: Boolean)
+
+/**
+ * The text of the field cut at TranslateGuards.MAX_CHARS, through this app's own [TranslateGuards.withinCap] and
+ * [TranslateGuards.clip] (translate/aidl/TranslateGuards.kt, the cap the panel's ProcessTextActivity uses for the text it
+ * is given, after offline-translator's ProcessTextActivity.kt
+ * https://github.com/DavidVentura/offline-translator/blob/e7716c6859e3d90b8883c667c1a3cfeef407df08/app/src/main/java/dev/davidv/translator/ProcessTextActivity.kt),
+ * so a surrogate pair is never split. A blank text longer than the cap is nothing worth keeping and reads as empty.
+ */
+internal fun capInput(text: String): Capped =
+    if (TranslateGuards.withinCap(text)) Capped(text, false)
+    else Capped(TranslateGuards.clip(text)?.text.orEmpty(), true)
+
+/**
+ * The screen with its data given: the title bar, the language bar, the source card and the result card. The state and the
+ * effects stay in [HomeScreen], so a test draws this with fixed data: state hoisting, as Now in Android splits its
+ * ForYouRoute (state, effects) from ForYouScreen (what is drawn)
+ * https://github.com/android/nowinandroid/blob/main/feature/foryou/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/foryou/impl/ForYouScreen.kt
+ */
+@Composable
+internal fun HomeContent(
+    ui: TranslateUi,
+    input: String,
+    heard: Heard,
+    clipped: Boolean,
+    hasClipboardText: Boolean,
+    speaking: Boolean,
+    noVoice: Boolean,
+    onModels: () -> Unit,
+    onSettings: () -> Unit,
+    onSource: () -> Unit,
+    onTarget: () -> Unit,
+    onSwap: () -> Unit,
+    onInput: (String) -> Unit,
+    onPaste: () -> Unit,
+    onMic: () -> Unit,
+    onClear: () -> Unit,
+    onDetected: () -> Unit,
+    onCopy: () -> Unit,
+    onListen: () -> Unit,
+    onShare: () -> Unit,
+    onGet: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val pageScroll = rememberScrollState()
+    FloatingFrame(
+        bottom = 0.dp,
+        scroll = pageScroll,
+        top = {
+            FloatingTop(
+                stringResource(R.string.app_name),
+                leading = { FloatingAction(AppIcons.Download, stringResource(R.string.models), onModels) },
+                trailing = { FloatingAction(AppIcons.Settings, stringResource(R.string.settings), onSettings) }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(pageScroll)
+                .padding(horizontal = LocalReadableInset.current + 16.dp)
+        ) {
+            Spacer(Modifier.height(padding.calculateTopPadding()))
+            Spacer(Modifier.height(8.dp))
+
+            LanguageBar(ui = ui, onSource = onSource, onTarget = onTarget, onSwap = onSwap)
+
+            Spacer(Modifier.height(16.dp))
+            InputCard(
+                ui = ui,
+                input = input,
+                heard = heard,
+                clipped = clipped,
+                hasClipboardText = hasClipboardText,
+                onInput = onInput,
+                onPaste = onPaste,
+                onMic = onMic,
+                onClear = onClear,
+                onDetected = onDetected
+            )
+
+            if (input.isNotBlank()) {
+                Spacer(Modifier.height(16.dp))
+                ResultCard(
+                    ui = ui,
+                    speaking = speaking,
+                    noVoice = noVoice,
+                    onCopy = onCopy,
+                    onListen = onListen,
+                    onShare = onShare,
+                    onGet = onGet,
+                    onCancel = onCancel,
+                    onSettings = onSettings
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
+    }
+}
 
 /**
  * The language bar: the source, the swap, the target, as offline-translator's LanguageSelectionRow lays them out and
@@ -323,6 +405,8 @@ private fun InputCard(
     ui: TranslateUi,
     input: String,
     heard: Heard,
+    clipped: Boolean,
+    hasClipboardText: Boolean,
     onInput: (String) -> Unit,
     onPaste: () -> Unit,
     onMic: () -> Unit,
@@ -330,7 +414,6 @@ private fun InputCard(
     onDetected: () -> Unit
 ) {
     val listening = heard.phase == Phase.LISTENING
-    val hasClipboardText = rememberClipboardHasText()
     ZoneSurface(shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             BasicTextField(
@@ -348,6 +431,15 @@ private fun InputCard(
                 }
             )
             heard.note?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+            // The text was cut at the cap: said in the panel's words (process_clipped), under the field.
+            if (clipped) {
+                Text(
+                    stringResource(R.string.input_clipped),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }
+                )
+            }
             val detected = ui.detected
             if (ui.source != null && detected != null && detected != ui.source && input.isNotBlank()) {
                 ZoneSurface(shape = CircleShape, onClick = onDetected, modifier = Modifier.align(Alignment.CenterHorizontally)) {
