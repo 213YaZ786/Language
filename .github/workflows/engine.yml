@@ -187,22 +187,28 @@ jobs:
 
       # The lock the build used, with its table printed. Cargo.lock also lists the optional crates
       # of the features that are off (OCR, PDF, rendering): the flaws that count are those of the
-      # crates this build compiles, from `cargo tree` with its own target and features, build
-      # scripts' crates included (https://doc.rust-lang.org/cargo/commands/cargo-tree.html), matched
-      # to osv-scanner's JSON report (https://google.github.io/osv-scanner/output/#json). One left
-      # stops the release.
+      # crates linked into libbindings.so, from `cargo tree -e normal` with its own target and
+      # features (https://doc.rust-lang.org/cargo/commands/cargo-tree.html), matched to
+      # osv-scanner's JSON report (https://google.github.io/osv-scanner/output/#json). One left stops
+      # the release. Crates only build scripts run on this runner are shown as warnings: cld2-sys's
+      # build.rs (DavidVentura/rust-cld2, cld2-sys/build.rs) takes regex 0.1 and toml 0.1 to read its
+      # own Cargo.toml and match ".cc" file names.
       - name: Known flaws after
         working-directory: engine/bindings
         run: |
           "$GITHUB_WORKSPACE/osv-scanner" scan source -L Cargo.lock || true
-          cargo tree --target "${{ matrix.triple }}" --no-default-features -e normal,build \
+          cargo tree --target "${{ matrix.triple }}" --no-default-features -e normal \
             --prefix none -f '{p}' | sed 's/ (.*//' | sort -u > "$RUNNER_TEMP/compiled.txt"
-          wc -l < "$RUNNER_TEMP/compiled.txt"
+          cargo tree --target "${{ matrix.triple }}" --no-default-features -e normal,build \
+            --prefix none -f '{p}' | sed 's/ (.*//' | sort -u > "$RUNNER_TEMP/built.txt"
+          wc -l "$RUNNER_TEMP/compiled.txt" "$RUNNER_TEMP/built.txt"
           "$GITHUB_WORKSPACE/osv-scanner" scan source --format json -L Cargo.lock > "$RUNNER_TEMP/osv.json" || true
           jq -r '.results[]?.packages[]? | select((.vulnerabilities // []) | length > 0)
                  | "\(.package.name) v\(.package.version)\t\([.vulnerabilities[].id] | join(" "))"' \
             "$RUNNER_TEMP/osv.json" | sort -u > "$RUNNER_TEMP/flawed.txt"
           echo "Flawed crates in the lock:"; cat "$RUNNER_TEMP/flawed.txt"
+          cut -f1 "$RUNNER_TEMP/flawed.txt" | grep -Fxf - "$RUNNER_TEMP/built.txt" \
+            | grep -Fvxf "$RUNNER_TEMP/compiled.txt" | sed 's/^/::warning::Build script only, not in the library: /' || true
           if cut -f1 "$RUNNER_TEMP/flawed.txt" | grep -Fxf - "$RUNNER_TEMP/compiled.txt"; then
             echo "::error::A crate this build compiles has a known flaw (above)"; exit 1
           fi
