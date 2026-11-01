@@ -15,13 +15,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:name=".VoiceApplication"
+        android:name=".LanguageApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Voice"
+        android:theme="@style/Theme.Language"
         android:enableOnBackInvokedCallback="false"
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config"
@@ -45,7 +45,7 @@
         <activity
             android:name=".recognize.RecognizeActivity"
             android:exported="true"
-            android:theme="@style/Theme.Voice.Panel"
+            android:theme="@style/Theme.Language.Panel"
             android:excludeFromRecents="true"
             android:launchMode="standard"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode">
@@ -55,7 +55,7 @@
             </intent-filter>
         </activity>
 
-        <!-- A sound shared to Voice (a voice message, a recording): its words to copy or share. Only names a sound;
+        <!-- A sound shared to Language (a voice message, a recording): its words to copy or share. Only names a sound;
              another app's content:// is read, nothing else. -->
         <activity
             android:name=".share.TranscribeActivity"

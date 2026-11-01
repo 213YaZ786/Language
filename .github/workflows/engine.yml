@@ -1,0 +1,206 @@
+# The translation engine, built from this repository's engine/bindings (a trimmed
+# copy of offline-translator's bindings crate), then published as this
+# repository's release "engine-<version>-p<n>"; the app downloads it at its
+# pinned SHA-256 (the model is SMS's engine.yml, which does the same for
+# chatmail core).
+#
+# engine/bindings and engine/bindings-bindgen are copied from
+# github.com/DavidVentura/offline-translator (GPL-3.0, tag v0.8.7 at the commit
+# below, app/src/main/bindings and app/bindings-bindgen). Cargo pulls
+# translator-rs (MIT) by git revision from Cargo.lock, so upstream is not checked
+# out. The build is upstream's: the Dockerfile
+# (https://github.com/DavidVentura/offline-translator/blob/e7716c6859e3d90b8883c667c1a3cfeef407df08/Dockerfile:
+# Rust 1.88.0, cargo-ndk 4.1.2 --locked, ninja, cmake, libclang, the NDK) and the
+# tasks of app/build.gradle.kts
+# (https://github.com/DavidVentura/offline-translator/blob/e7716c6859e3d90b8883c667c1a3cfeef407df08/app/build.gradle.kts):
+# buildBindings<Abi> (same environment, same CARGO_ENCODED_RUSTFLAGS, same
+# `cargo ndk build --lib --release --platform 23 --link-libcxx-shared` in the
+# bindings crate), buildUniffiBindgen (cargo build --release in the bindgen
+# crate) and generateUniffiBindings (`uniffi-bindgen generate libbindings.so
+# --language kotlin --no-format --metadata-no-deps`, run in the bindings crate so
+# its uniffi.toml applies).
+#
+# Differences from upstream, on purpose:
+# - The crate is trimmed: the modules adblock, http_server, android_font_provider,
+#   live_pipeline_jni, bitmap_jni and selection are gone, and document, image
+#   rendering and document alignment items are behind their cfg(feature).
+# - `--no-default-features`: only translation, language detection and the language
+#   pack catalog (plan, download, delete) come in (no dictionary, mucab, tts, pdf,
+#   odt, epub, transliterate, image-render, pdf-image-translate, doc-align, ppocr,
+#   planar-tracker, gpu, http). This workflow is the first to compile the trimmed
+#   crate; a build that fails on a missing item is fixed in the crate and said in
+#   the notes below.
+# - The NDK is r28.2 (the one this app's Android Gradle plugin uses), so the
+#   libc++_shared.so packaged by the app, for whisper.cpp, is the one this
+#   library was linked against; it is therefore not published here.
+# - ABIs: arm64-v8a and x86_64, the app's abiFilters.
+# - No `--locked`: removing dependencies prunes Cargo.lock. The build prints the
+#   lock's diff and publishes the resulting lock (Cargo-<abi>.lock).
+#
+# Known flaws: Google's osv-scanner (github.com/google/osv-scanner, release
+# binary v2.7.0 checked against its published SHA-256, not an action) reads
+# Cargo.lock before the build and prints to the log.
+#
+# Runs only on a push to the branch "engine" or by hand: main's Build is not
+# triggered, so no app release comes from it.
+name: Engine
+
+on:
+  push:
+    branches: [engine]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OT_VERSION: "0.8.7"
+  # v0.8.7's commit, so a moved tag changes nothing.
+  OT_COMMIT: "e7716c6859e3d90b8883c667c1a3cfeef407df08"
+  PATCH: "p1"
+  NDK_VERSION: "28.2.13676358"
+  RUST: "1.88.0"
+  CARGO_NDK: "4.1.2"
+  OSV_SCANNER: "v2.7.0"
+  OSV_SCANNER_SHA256: "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b"
+
+jobs:
+  build:
+    name: Android ${{ matrix.abi }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            triple: aarch64-linux-android
+            rt: aarch64-android
+          - abi: x86_64
+            triple: x86_64-linux-android
+            rt: x86_64-android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      # The Dockerfile's apt list (make, g++, libc-dev are on the runner).
+      - name: Build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build libclang-dev
+
+      - name: NDK ${{ env.NDK_VERSION }}
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          "$sdkmanager" --install "ndk;${NDK_VERSION}"
+          test -f "$ANDROID_HOME/ndk/${NDK_VERSION}/build/cmake/android.toolchain.cmake"
+
+      - name: Rust ${{ env.RUST }} and cargo-ndk ${{ env.CARGO_NDK }}
+        run: |
+          rustup toolchain install "$RUST" --profile minimal --target "${{ matrix.triple }}"
+          rustup default "$RUST"
+          cargo install "cargo-ndk@${CARGO_NDK}" --locked
+
+      - name: osv-scanner
+        run: |
+          curl -fsSL -o osv-scanner "https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  osv-scanner" | sha256sum -c -
+          chmod +x osv-scanner
+
+      - name: Known flaws before
+        run: ./osv-scanner scan source -L engine/bindings/Cargo.lock || true
+
+      # buildBindings<Abi> of app/build.gradle.kts.
+      - name: Build libbindings.so
+        working-directory: engine/bindings
+        run: |
+          ndk="$ANDROID_HOME/ndk/${NDK_VERSION}"
+          export ANDROID_NDK_ROOT="$ndk"
+          export ANDROID_NDK_HOME="$ndk"
+          # clang's runtime directory carries the NDK's clang major version.
+          rt=$(ls "$ndk"/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/*/lib/linux/libclang_rt.builtins-${{ matrix.rt }}.a)
+          test -f "$rt"
+          # cargoEncodedRustflags(abi): one flag per \x1f.
+          IFS=$'\x1f'
+          flags=(
+            "--remap-path-prefix=${GITHUB_WORKSPACE}=."
+            "--remap-path-prefix=${HOME}/.cargo=/"
+            "-C" "link-arg=-Wl,--threads=1"
+            "-C" "link-arg=-Wl,--sort-section=name"
+            "-C" "link-arg=-Wl,--sort-common"
+            "-C" "link-arg=${rt}"
+          )
+          export CARGO_ENCODED_RUSTFLAGS="${flags[*]}"
+          unset IFS
+          # The CMake cross-compile contract for slimt-sys.
+          export CMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake"
+          export ANDROID_ABI="${{ matrix.abi }}"
+          export ANDROID_PLATFORM="android-23"
+          export CMAKE_GENERATOR="Ninja"
+          cargo ndk build --lib --target "${{ matrix.abi }}" --release \
+            --no-default-features \
+            --platform 23 --link-libcxx-shared \
+            --output-dir "$RUNNER_TEMP/jni"
+          ls -l "$RUNNER_TEMP/jni/${{ matrix.abi }}"
+          # Dependencies were removed from the crate: show how the lock was pruned.
+          git diff --stat -- Cargo.lock
+
+      - name: Known flaws after
+        run: ./osv-scanner scan source -L engine/bindings/Cargo.lock || true
+
+      # buildUniffiBindgen and generateUniffiBindings, once: the Kotlin does not
+      # depend on the ABI.
+      - name: Generate the Kotlin bindings
+        if: matrix.abi == 'arm64-v8a'
+        run: |
+          (cd engine/bindings-bindgen && cargo build --release)
+          mkdir -p "$RUNNER_TEMP/kotlin"
+          cd engine/bindings
+          "$GITHUB_WORKSPACE/engine/bindings-bindgen/target/release/uniffi-bindgen" generate \
+            "$RUNNER_TEMP/jni/arm64-v8a/libbindings.so" \
+            --language kotlin --out-dir "$RUNNER_TEMP/kotlin" \
+            --no-format --metadata-no-deps
+          find "$RUNNER_TEMP/kotlin" -type f
+
+      - name: Name and checksum
+        run: |
+          mkdir out
+          cp "$RUNNER_TEMP/jni/${{ matrix.abi }}/libbindings.so" "out/libbindings-${{ matrix.abi }}.so"
+          cp engine/bindings/Cargo.lock "out/Cargo-${{ matrix.abi }}.lock"
+          if [ "${{ matrix.abi }}" = arm64-v8a ]; then
+            tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+              -C "$RUNNER_TEMP/kotlin" -cf - . | gzip -n > out/bindings-kotlin.tar.gz
+          fi
+          cd out
+          sha256sum * | tee "SHA256-${{ matrix.abi }}.txt"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: engine-${{ matrix.abi }}
+          path: out/*
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: out
+          merge-multiple: true
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="engine-${OT_VERSION}-${PATCH}"
+          cat out/SHA256-*.txt
+          gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Translation engine ${OT_VERSION} (${PATCH})" \
+            --notes "Trimmed copy of offline-translator ${OT_VERSION}'s bindings crate (commit ${OT_COMMIT}, engine/bindings of this repository), built with --no-default-features: dictionary, mucab, tts, pdf, odt, epub, transliterate, image-render, pdf-image-translate, doc-align, ppocr, planar-tracker, gpu and http are off; the adblock, HTTP server, font, camera and selection modules are removed. Cargo.lock is not locked: Cargo-<abi>.lock is the lock the build produced. Rust ${RUST}, cargo-ndk ${CARGO_NDK}, NDK ${NDK_VERSION}, Android API 23. libc++_shared.so is not included: the app packages its own, from the same NDK." \
+            out/libbindings-*.so out/bindings-kotlin.tar.gz out/Cargo-*.lock out/SHA256-*.txt

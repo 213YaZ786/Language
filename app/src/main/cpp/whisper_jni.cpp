@@ -194,7 +194,7 @@ void vad_close(JNIEnv *, jclass, jlong handle) {
 }
 
 // The Kotlin object these methods belong to: the app's package, then core.voice.Whisper.
-const char kClass[] = "com.yaz.voice.core.voice.Whisper";
+const char kClass[] = "com.yaz.language.core.voice.Whisper";
 
 const JNINativeMethod kMethods[] = {
     {"open", "(Ljava/lang/String;Ljava/lang/String;)J", reinterpret_cast<void *>(open_model)},

@@ -1,0 +1,3 @@
+# Version-checked cleaner, so lint can verify the API 34 SystemCleaner is never reached on older Android.
+[bindings.kotlin]
+android_cleaner = true

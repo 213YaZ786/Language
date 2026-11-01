@@ -8,7 +8,7 @@
      https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/view/inputmethod/InputMethodSubtype.java
      Auxiliary: one-shot, the previous keyboard comes back when it is done (isAuxiliary's documented intent). -->
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
-    android:settingsActivity="com.yaz.voice.MainActivity">
+    android:settingsActivity="com.yaz.language.MainActivity">
     <subtype
         android:label="@string/ime_subtype"
         android:imeSubtypeMode="voice"

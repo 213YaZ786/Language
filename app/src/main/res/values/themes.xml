@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.Voice" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.Language" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -8,7 +8,7 @@
     <!-- The RECOGNIZE_SPEECH panel: a see-through window over the app that asked, dimmed, Compose draws the sheet at
          the bottom. After Android's Theme.Translucent.NoTitleBar
          https://developer.android.com/reference/android/R.style#Theme_Translucent_NoTitleBar -->
-    <style name="Theme.Voice.Panel" parent="Theme.Voice">
+    <style name="Theme.Language.Panel" parent="Theme.Language">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowNoTitle">true</item>

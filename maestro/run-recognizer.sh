@@ -6,8 +6,8 @@
 # whisper.cpp's samples/jfk.wav in files/. Usage: maestro/run-recognizer.sh [adb serial]
 set -e
 D="adb ${1:+-s $1}"
-P=com.yaz.voice.debug
-T=$P/com.yaz.voice.recognition.RecognizerTestActivity
+P=com.yaz.language.debug
+T=$P/com.yaz.language.recognition.RecognizerTestActivity
 
 case_run() { # wait seconds, expected line, extras...
   wait=$1; want=$2; shift 2

@@ -18,11 +18,11 @@ val whisperRoot = layout.buildDirectory.dir("whisper").get().asFile
 val whisperSrc = File(whisperRoot, "whisper.cpp-$whisperVersion")
 
 android {
-    namespace = "com.yaz.voice"
+    namespace = "com.yaz.language"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.yaz.voice"
+        applicationId = "com.yaz.language"
         minSdk = 31
         targetSdk = 37
         versionCode = 2
@@ -50,12 +50,12 @@ android {
 
     signingConfigs {
         create("release") {
-            val storeFilePath = providers.gradleProperty("voice.storeFile").orNull
+            val storeFilePath = providers.gradleProperty("language.storeFile").orNull
             if (storeFilePath != null) {
                 storeFile = file(storeFilePath)
-                storePassword = providers.gradleProperty("voice.storePassword").orNull
-                keyAlias = providers.gradleProperty("voice.keyAlias").orNull
-                keyPassword = providers.gradleProperty("voice.keyPassword").orNull
+                storePassword = providers.gradleProperty("language.storePassword").orNull
+                keyAlias = providers.gradleProperty("language.keyAlias").orNull
+                keyPassword = providers.gradleProperty("language.keyPassword").orNull
             }
         }
     }
@@ -68,7 +68,7 @@ android {
         release {
             // Only attached when the signing properties are supplied, so a
             // local build without a keystore still produces an unsigned APK.
-            if (providers.gradleProperty("voice.storeFile").isPresent) {
+            if (providers.gradleProperty("language.storeFile").isPresent) {
                 signingConfig = signingConfigs.getByName("release")
             }
             isMinifyEnabled = false

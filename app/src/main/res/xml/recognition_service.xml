@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Transcribro's res/xml/recognition_service.xml: Voice's settings open from Settings > Voice input. -->
+<!-- Transcribro's res/xml/recognition_service.xml: Language's settings open from Settings > Voice input. -->
 <recognition-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:settingsActivity="com.yaz.voice.MainActivity" />
+    android:settingsActivity="com.yaz.language.MainActivity" />

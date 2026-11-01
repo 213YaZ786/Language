@@ -1,4 +1,4 @@
-// Copied from Calculator's settings.gradle.kts (same repositories), the app named Voice.
+// Copied from Calculator's settings.gradle.kts (same repositories), the app named Language.
 pluginManagement {
     repositories {
         google {
@@ -21,5 +21,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Voice"
+rootProject.name = "Language"
 include(":app")

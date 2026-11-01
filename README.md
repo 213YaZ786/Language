@@ -1,6 +1,6 @@
-# Voice
+# Language
 
-Speech recognition for Android, on the phone. No account, no tracking, no ads.
+Speech recognition and translation for Android, on the phone. No account, no tracking, no ads.
 
 - Writes what you say with the phone's own recognizer when it has your
   language, else with Whisper (Base or Small), fetched once when you ask.
@@ -24,10 +24,17 @@ and a check for a new version on GitHub. Each can be turned off in Settings.
 - [Kõnele speechutils](https://github.com/Kaljurand/speechutils) (Apache
   License 2.0).
 - Icons: Material Icons by Google, Apache License 2.0.
+- [offline-translator](https://github.com/DavidVentura/offline-translator)
+  by DavidVentura (GPL-3.0): the engine bindings in `engine/`.
+  [translator-rs](https://github.com/DavidVentura/translator-rs) (MIT) and
+  [slimt](https://github.com/jerinphilip/slimt) (Bergamot, GPL-2.0 with no
+  version named, so any version) are its engine.
+- [Firefox Translations models](https://github.com/mozilla/firefox-translations-models)
+  by Mozilla (MPL-2.0), fetched from Firefox's Remote Settings.
 
 ## Licence
 
-MIT, see [LICENSE](LICENSE).
+GPL-3.0, see [LICENSE](LICENSE) (offline-translator's code is GPL-3.0).
 
 Transcribro's notice:
 
