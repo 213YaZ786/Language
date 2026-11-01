@@ -3,6 +3,7 @@
 // https://github.com/ggml-org/whisper.cpp
 import java.net.URI
 import java.security.MessageDigest
+import java.util.zip.GZIPInputStream
 
 plugins {
     // AGP 9 compiles Kotlin itself (built-in Kotlin), so no kotlin-android here.
@@ -20,6 +21,9 @@ val whisperSrc = File(whisperRoot, "whisper.cpp-$whisperVersion")
 android {
     namespace = "com.yaz.language"
     compileSdk = 37
+    // The engine's NDK (engine.yml), so the libc++_shared.so whisper's CMake packs is the engine's
+    // (offline-translator's app/build.gradle.kts line 16 sets ndkVersion the same way).
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.yaz.language"
@@ -122,6 +126,10 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.koin.android)
     implementation(libs.koin.compose)
+    // uniffi's Kotlin bindings call the engine through JNA; the aar carries libjnidispatch.so for Android
+    // (offline-translator's app/build.gradle.kts line 449, there 5.14.0; 5.19.1 is the newest on Maven Central,
+    // 2026-06-12). Literal here: gradle/libs.versions.toml is the base kit's synced copy.
+    implementation("net.java.dev.jna:jna:5.19.1@aar")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)
@@ -153,3 +161,92 @@ val fetchWhisper by tasks.registering {
 tasks.configureEach {
     if (name.startsWith("configureCMake") || name.startsWith("buildCMake") || name.startsWith("generateJsonModel")) dependsOn(fetchWhisper)
 }
+
+// The translation engine (offline-translator's Rust crate, trimmed, GPL-3.0, github.com/DavidVentura/offline-translator
+// at v0.8.7, commit e7716c6859e3d90b8883c667c1a3cfeef407df08): its libbindings per ABI and its uniffi Kotlin bindings,
+// built by this repository's .github/workflows/engine.yml (release engine-0.8.7-p1, branch engine), fetched here at the
+// pinned SHA-256 and checked before anything is written, so the repository holds no binary. Copied from SMS's
+// app/build.gradle.kts (fetchChatmail: pinned release, checksum before writing, skip when the target already matches,
+// jniLibs srcDir, preBuild dependsOn). Rust is not built here (offline-translator's buildBindings does).
+val engineRelease = "https://github.com/213YaZ786/Language/releases/download/engine-0.8.7-p1"
+// uniffi loads "bindings" (findLibraryName in uniffi/bindings/bindings.kt), so every ABI's file is libbindings.so.
+val engineLibraries = mapOf(
+    "arm64-v8a" to ("libbindings-arm64-v8a.so" to "e5e691b561cf23dedb553e9ef5c0758050fb19f721a85cbe0f5bbecc4d73ebac"),
+    "x86_64" to ("libbindings-x86_64.so" to "5ca25eda48d82178c3184304c4560a3158228072eb0b792396f4a4c04423d78f")
+)
+val engineKotlin = "bindings-kotlin.tar.gz" to "75e976407efba0e9d094be52419783df77a45a7327a39a0a1e16d69e5f193ef5"
+val engineJniDir = layout.buildDirectory.dir("engine/jniLibs")
+val engineArchive = layout.buildDirectory.file("engine/bindings-kotlin.tar.gz")
+// Same folder as offline-translator's app/build.gradle.kts line 22 and 380 (generatedBindingsDir).
+val engineKotlinDir = layout.buildDirectory.dir("generated/source/uniffi/kotlin")
+
+// Injected services, not Project.copy, at execution time: Gradle's docs, "Working with files" (configuration cache)
+// https://docs.gradle.org/current/userguide/working_with_files.html
+interface EngineServices {
+    @get:javax.inject.Inject val fs: FileSystemOperations
+    @get:javax.inject.Inject val archives: ArchiveOperations
+}
+
+val fetchEngine by tasks.registering {
+    val jniDir = engineJniDir
+    val archiveFile = engineArchive
+    val kotlinDir = engineKotlinDir
+    val libraries = engineLibraries
+    val kotlinTar = engineKotlin
+    val release = engineRelease
+    val services = objects.newInstance<EngineServices>()
+    inputs.property("release", release)
+    outputs.dir(jniDir)
+    outputs.dir(kotlinDir)
+    doLast {
+        fun sha256(bytes: ByteArray) = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        libraries.forEach { (abi, asset) ->
+            val (name, sha) = asset
+            val target = jniDir.get().dir(abi).file("libbindings.so").asFile
+            if (target.exists() && sha256(target.readBytes()) == sha) return@forEach
+            target.parentFile.mkdirs()
+            val bytes = URI("$release/$name").toURL().openStream().use { it.readBytes() }
+            check(sha256(bytes) == sha) { "engine $abi: checksum does not match" }
+            target.writeBytes(bytes)
+        }
+
+        val (tarName, tarSha) = kotlinTar
+        val archive = archiveFile.get().asFile
+        if (!archive.exists() || sha256(archive.readBytes()) != tarSha) {
+            archive.parentFile.mkdirs()
+            val bytes = URI("$release/$tarName").toURL().openStream().use { it.readBytes() }
+            check(sha256(bytes) == tarSha) { "engine bindings: checksum does not match" }
+            archive.writeBytes(bytes)
+        }
+        // Every entry listed before anything is extracted: Apache Commons Compress's TarArchiveInputStream
+        // (https://commons.apache.org/proper/commons-compress/examples.html#Tar), already on Gradle's classpath
+        // through the Android plugin. Refused: an absolute path, a ".." part, an entry outside uniffi/, a link,
+        // a file that is not a .kt.
+        GZIPInputStream(archive.inputStream().buffered()).use { gz ->
+            val tar = org.apache.commons.compress.archivers.tar.TarArchiveInputStream(gz)
+            while (true) {
+                val entry = tar.nextEntry ?: break
+                val path = entry.name
+                check(!path.startsWith("/") && !path.contains("\\") && !path.contains('\u0000')) { "engine bindings: absolute path $path" }
+                val parts = path.split("/").filter { it.isNotEmpty() && it != "." }
+                check(parts.none { it == ".." }) { "engine bindings: '..' in $path" }
+                check(!entry.isSymbolicLink && !entry.isLink) { "engine bindings: link $path" }
+                if (parts.isEmpty()) continue // "./" itself
+                check(parts[0] == "uniffi") { "engine bindings: $path is outside uniffi/" }
+                check(entry.isDirectory || (entry.isFile && parts.last().endsWith(".kt"))) { "engine bindings: $path is not a .kt file" }
+            }
+        }
+        // Wiped first so no stale file stays.
+        services.fs.delete { delete(kotlinDir) }
+        services.fs.copy {
+            from(services.archives.tarTree(services.archives.gzip(archive)))
+            into(kotlinDir)
+        }
+    }
+}
+
+// srcDir of offline-translator's app/build.gradle.kts line 22 (java.srcDir(...generated/source/uniffi/kotlin)).
+// AGP 9 (built-in Kotlin): the Kotlin source set's own `directories`, srcDir being deprecated.
+android.sourceSets.getByName("main").jniLibs.directories.add(engineJniDir.get().asFile.path)
+android.sourceSets.getByName("main").kotlin.directories.add(engineKotlinDir.get().asFile.path)
+tasks.named("preBuild") { dependsOn(fetchEngine) }
