@@ -24,18 +24,31 @@ object Whisper {
      * The words in [pcm] (16 kHz mono, -1 to 1) as UTF-8, in [language] (a code whisper knows, else "auto": found from
      * the sound itself), never translated. [live]: dictation, which leaves out sound effects written as words.
      * [prompt]: words the speech likely holds, whisper's initial prompt (cli.cpp's --prompt), or null.
+     * [shortContext]: the model is a whisper-acft one (SpeechModel.Pin.shortContext): whisper reads an audio context the
+     * length of the sound, Joplin's WhisperSession::transcribe_ (AGPL-3.0-or-later)
+     * https://github.com/laurent22/joplin/blob/dev/packages/whisper-voice-typing/cpp/utils/WhisperSession.cpp
+     * A sound under one second is padded with silence up to one second (whisper.cpp: "consider padding the input audio
+     * with silence"). [noFallback]: no retry at a higher temperature, for a real-time source (stream.cpp's
+     * --no-fallback); a file keeps whisper's fallback.
      */
-    @JvmStatic external fun transcribe(handle: Long, pcm: FloatArray, threads: Int, language: String, live: Boolean, prompt: String?): ByteArray?
+    @JvmStatic external fun transcribe(
+        handle: Long, pcm: FloatArray, threads: Int, language: String, live: Boolean, prompt: String?, shortContext: Boolean,
+        noFallback: Boolean,
+    ): ByteArray?
 
     /** The words in [pcm], in whatever language they are spoken (SMS's voice messages). */
-    fun transcribe(handle: Long, pcm: FloatArray, threads: Int): ByteArray? = transcribe(handle, pcm, threads, "auto", false, null)
+    fun transcribe(handle: Long, pcm: FloatArray, threads: Int): ByteArray? =
+        transcribe(handle, pcm, threads, "auto", false, null, false, false)
 
     /**
      * The same, word by word: UTF-8 lines "t0<TAB>t1<TAB>text<LF>", one per word, t0 and t1 in milliseconds from the
      * start of [pcm] (parse them with [parseWords]). whisper.cpp's word-level timestamps, cli.cpp's -ml 1
      * https://github.com/ggml-org/whisper.cpp/blob/v1.9.4/examples/cli/cli.cpp (experimental in whisper.cpp, README).
      */
-    @JvmStatic external fun transcribeWords(handle: Long, pcm: FloatArray, threads: Int, language: String, live: Boolean, prompt: String?): ByteArray?
+    @JvmStatic external fun transcribeWords(
+        handle: Long, pcm: FloatArray, threads: Int, language: String, live: Boolean, prompt: String?, shortContext: Boolean,
+        noFallback: Boolean,
+    ): ByteArray?
 
     /**
      * The words of a [transcribeWords] answer, trimmed, empty ones dropped. A piece of punctuation alone (a segment

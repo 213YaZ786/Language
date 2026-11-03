@@ -9,12 +9,16 @@
 //   (same header, "Voice Activity Detection"); no_reset is the call made for streaming, as its comment says
 // - the live settings (suppress_nst, no timestamps) follow examples/stream/stream.cpp in its VAD mode
 //   https://github.com/ggml-org/whisper.cpp/blob/v1.9.4/examples/stream/stream.cpp
+// - the short audio context (whisper-acft models) is Joplin's WhisperSession::transcribe_ (AGPL-3.0-or-later), and the
+//   no temperature fallback for a real-time source is stream.cpp's no_fallback (see run_whisper)
 // - the abort callback is whisper_full_params.abort_callback of whisper.h
 // - the methods are registered by name in JNI_OnLoad, so this file belongs to no package
 //   (https://developer.android.com/training/articles/perf-jni#native-libraries, RegisterNatives)
 #include <jni.h>
+#include <android/log.h>
 #include <atomic>
 #include <string>
+#include <vector>
 #include "whisper.h"
 #include "ggml-backend.h"
 
@@ -57,10 +61,41 @@ jlong open_model(JNIEnv *env, jclass, jstring lib_dir, jstring model) {
 // The answer is then UTF-8 lines "t0<TAB>t1<TAB>text<LF>": t0 and t1 in milliseconds from the start of the sound
 // (whisper_full_get_segment_t0/t1 count 10 ms, whisper.h), the text as whisper wrote it (a leading space marks a new
 // word). Without [words] it is the text alone.
+// [short_context]: the model is a whisper-acft one (FUTO), tuned to read only as much audio as there is, so whisper is
+// given an audio context sized to the sound: Joplin's WhisperSession::transcribe_ (see the block below). Word times
+// keep the full context.
+//
+// The shortAudioContext part follows WhisperSession::transcribe_ of Joplin (AGPL-3.0-or-later,
+// Copyright the Joplin contributors; this file's app is GPL-3.0 and credits Joplin in its README)
+// https://github.com/laurent22/joplin/blob/dev/packages/whisper-voice-typing/cpp/utils/WhisperSession.cpp
+// Changed from the original: the sound comes as a Java array, copied into a std::vector (n is its length); no exception
+// crosses the JNI boundary (a failure answers null); under one second the sound is padded with silence up to one
+// second instead of answering "" (whisper.cpp's "consider padding the input audio with silence"); the warning
+// goes to Android's log directly (LOGW is Joplin's macro); whisper_print_timings is left out (the engine's logs are
+// off here); the audio_ctx is kept for [short_context] without [words].
 jbyteArray run_whisper(JNIEnv *env, jlong handle, jfloatArray pcm, jint threads, jstring language, jboolean live,
-                       jstring prompt, bool words) {
+                       jstring prompt, bool words, bool short_context, jboolean noFallback) {
     auto *ctx = reinterpret_cast<whisper_context *>(handle);
     if (ctx == nullptr) return nullptr;
+    jsize n = env->GetArrayLength(pcm);
+    // The sound is copied (the Java array is only read), padded below when it is short.
+    std::vector<float> audio(n);
+    env->GetFloatArrayRegion(pcm, 0, n, audio.data());
+    // Whisper won't transcribe anything shorter than 1s.
+    int minTranscribeLength = WHISPER_SAMPLE_RATE; // 1s
+    if (audio.size() < minTranscribeLength) {
+        // Padded with silence, not dropped: whisper.cpp's own advice for a short input (whisper_full_with_state:
+        // "input is too short - %d ms < 100 ms. consider padding the input audio with silence"), so a short word
+        // said just before the end is still written out.
+        audio.resize(minTranscribeLength, 0.0f);
+    }
+    n = static_cast<jsize>(audio.size());
+
+    float seconds = static_cast<float>(n) / WHISPER_SAMPLE_RATE;
+    if (seconds > 30.0f) {
+        __android_log_print(ANDROID_LOG_WARN, "whisper", "Warning: Audio is longer than 30 seconds. Not all audio will be transcribed");
+    }
+
     whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     // The language asked for when whisper knows it, else found from the sound itself; never translated.
     const char *lang = env->GetStringUTFChars(language, nullptr);
@@ -92,10 +127,29 @@ jbyteArray run_whisper(JNIEnv *env, jlong handle, jfloatArray pcm, jint threads,
     params.abort_callback = abort_requested;
     params.abort_callback_user_data = nullptr;
     params.n_threads = threads;
-    jsize n = env->GetArrayLength(pcm);
-    jfloat *samples = env->GetFloatArrayElements(pcm, nullptr);
-    int failed = whisper_full(ctx, params, samples, n);
-    env->ReleaseFloatArrayElements(pcm, samples, JNI_ABORT);
+    // A real-time source (the microphone, a live stream): no temperature fallback (stream.cpp: -nf, --no-fallback),
+    // a retry at a higher temperature costs a second pass over the phrase. A file keeps it. (The original reads the
+    // flag from its command line; here the caller says it, apart from [live].)
+    // https://github.com/ggml-org/whisper.cpp/blob/master/examples/stream/stream.cpp
+    bool no_fallback = noFallback == JNI_TRUE;
+    params.temperature_inc = no_fallback ? 0.0f : params.temperature_inc;
+
+    // If supported by the model, allow shortening the transcription. This can significantly
+    // improve performance, but requires a fine-tuned model.
+    // See https://github.com/futo-org/whisper-acft
+    if (short_context && !words) {
+        // audio_ctx: 1500 every 30 seconds (50 units in one second).
+        // See https://github.com/futo-org/whisper-acft/issues/6
+        float padding = 64.0f;
+        params.audio_ctx = static_cast<int>(seconds * (1500.0f / 30.0f) + padding);
+
+        if (params.audio_ctx > 1500) {
+            params.audio_ctx = 1500;
+        }
+    }
+    whisper_reset_timings(ctx);
+
+    int failed = whisper_full(ctx, params, audio.data(), n);
     if (failed != 0) return nullptr;
     std::string text;
     const int segments = whisper_full_n_segments(ctx);
@@ -118,15 +172,15 @@ jbyteArray run_whisper(JNIEnv *env, jlong handle, jfloatArray pcm, jint threads,
 
 // The text alone: examples/cli/cli.cpp without -ml, https://github.com/ggml-org/whisper.cpp/blob/v1.9.4/examples/cli/cli.cpp
 jbyteArray transcribe(JNIEnv *env, jclass, jlong handle, jfloatArray pcm, jint threads, jstring language, jboolean live,
-                      jstring prompt) {
-    return run_whisper(env, handle, pcm, threads, language, live, prompt, false);
+                      jstring prompt, jboolean short_context, jboolean no_fallback) {
+    return run_whisper(env, handle, pcm, threads, language, live, prompt, false, short_context == JNI_TRUE, no_fallback);
 }
 
 // Word by word with times: examples/cli/cli.cpp with -ml 1 (README "Word-level timestamp (experimental)"),
 // https://github.com/ggml-org/whisper.cpp/blob/v1.9.4/examples/cli/cli.cpp
 jbyteArray transcribe_words(JNIEnv *env, jclass, jlong handle, jfloatArray pcm, jint threads, jstring language,
-                            jboolean live, jstring prompt) {
-    return run_whisper(env, handle, pcm, threads, language, live, prompt, true);
+                            jboolean live, jstring prompt, jboolean short_context, jboolean no_fallback) {
+    return run_whisper(env, handle, pcm, threads, language, live, prompt, true, short_context == JNI_TRUE, no_fallback);
 }
 
 // The language whisper heard in the last sound it wrote out (its code, "fr"), as cli.cpp reports it:
@@ -198,8 +252,8 @@ const char kClass[] = "com.yaz.language.core.voice.Whisper";
 
 const JNINativeMethod kMethods[] = {
     {"open", "(Ljava/lang/String;Ljava/lang/String;)J", reinterpret_cast<void *>(open_model)},
-    {"transcribe", "(J[FILjava/lang/String;ZLjava/lang/String;)[B", reinterpret_cast<void *>(transcribe)},
-    {"transcribeWords", "(J[FILjava/lang/String;ZLjava/lang/String;)[B", reinterpret_cast<void *>(transcribe_words)},
+    {"transcribe", "(J[FILjava/lang/String;ZLjava/lang/String;ZZ)[B", reinterpret_cast<void *>(transcribe)},
+    {"transcribeWords", "(J[FILjava/lang/String;ZLjava/lang/String;ZZ)[B", reinterpret_cast<void *>(transcribe_words)},
     {"heardLanguage", "(J)Ljava/lang/String;", reinterpret_cast<void *>(heard_language)},
     {"close", "(J)V", reinterpret_cast<void *>(close_model)},
     {"abort", "(Z)V", reinterpret_cast<void *>(abort_work)},

@@ -180,7 +180,8 @@ class Dictation(private val context: Context) {
      * RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS). [prompt]: words the speech likely holds,
      * given to whisper (Whisper.transcribe). [timings]: WHISPER writes each phrase out word by word and
      * [Listener.committedWords] gets the times. [stopOnSilence] false: no silence and no nothing-said ends it ([silenceMs]
-     * ignored), only the source's end or [stop] (a session whose audio is a stream). False when one is already running;
+     * ignored), only the source's end or [stop] (a session whose audio is a stream). [shortContext]: the model's
+     * SpeechModel.Pin.shortContext (an ACFT model reads an audio context sized to each phrase). False when one is already running;
      * otherwise the answer comes to [listener].
      */
     fun start(
@@ -193,6 +194,7 @@ class Dictation(private val context: Context) {
         prompt: String? = null,
         timings: Boolean = false,
         stopOnSilence: Boolean = true,
+        shortContext: Boolean = false,
     ): Boolean {
         if (session != null) return false
         if (source == null && context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -201,7 +203,7 @@ class Dictation(private val context: Context) {
         }
         val made: Session = when (engine) {
             Engine.SYSTEM -> SystemSession(language, listener, silenceMs)
-            Engine.WHISPER -> WhisperSession(language, model, listener, source ?: MicSource(), silenceMs, prompt, timings, stopOnSilence)
+            Engine.WHISPER -> WhisperSession(language, model, listener, source ?: MicSource(), silenceMs, prompt, timings, stopOnSilence, shortContext)
         }
         session = made
         if (!made.begin()) {
@@ -294,6 +296,7 @@ class Dictation(private val context: Context) {
         private val prompt: String?,
         private val timings: Boolean,
         private val stopOnSilence: Boolean,
+        private val shortContext: Boolean,
     ) : Session {
         @Volatile private var stopRequested = false
         @Volatile private var flush = false
@@ -439,8 +442,10 @@ class Dictation(private val context: Context) {
                     if (next === end) break
                     if (cancelled) continue
                     val phrase = next as Queued
-                    val bytes = (if (timings) Whisper.transcribeWords(handle, phrase.pcm, threads, code, true, prompt)
-                        else Whisper.transcribe(handle, phrase.pcm, threads, code, true, prompt)) ?: continue
+                    // No temperature fallback while the sound is real time (the microphone); a file keeps it.
+                    val noFallback = source.realTime
+                    val bytes = (if (timings) Whisper.transcribeWords(handle, phrase.pcm, threads, code, true, prompt, shortContext, noFallback)
+                        else Whisper.transcribe(handle, phrase.pcm, threads, code, true, prompt, shortContext, noFallback)) ?: continue
                     if (!told) {
                         told = true
                         Whisper.heardLanguage(handle)?.let { heard -> main.post { if (!cancelled) listener.language(heard) } }

@@ -9,7 +9,7 @@ Speech recognition and translation for Android, on the phone. No account, no tra
 - Nothing runs in the background. The microphone is open only while you
   listen.
 
-The connections: the speech model (Hugging Face), once, only when you ask,
+The connections: the speech model (voiceinput.futo.org), once, only when you ask,
 and a check for a new version on GitHub. Each can be turned off in Settings.
 
 ## Credits
@@ -18,6 +18,10 @@ and a check for a new version on GitHub. Each can be turned off in Settings.
   (ISC), the model for this app.
 - [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (MIT) and OpenAI's
   [Whisper](https://github.com/openai/whisper) models (MIT).
+- [whisper-acft](https://github.com/futo-org/whisper-acft) by FUTO (MIT), the
+  Base and Small models tuned for a short audio context.
+- [Joplin](https://github.com/laurent22/joplin) (AGPL-3.0-or-later), the short
+  audio context given to whisper (WhisperSession.cpp).
 - [Silero VAD](https://github.com/snakers4/silero-vad) (MIT), the voice
   detector.
 - Android Open Source Project (Apache License 2.0).

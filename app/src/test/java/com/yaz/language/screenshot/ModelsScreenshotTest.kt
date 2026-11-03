@@ -46,9 +46,20 @@ class ModelsScreenshotTest : ScreenshotBase() {
         phoneRecognizer = true, usesSystem = false, pin = SpeechModel.SMALL, state = SpeechModel.State.Ready, metered = false
     )
 
+    // The Whisper model on its way, at 42 %.
+    private val fetching = SpeechUi(
+        micGranted = true, micRefusedForGood = false, voiceInput = true, voiceKeyboard = true,
+        phoneRecognizer = false, usesSystem = false, pin = SpeechModel.BASE, state = SpeechModel.State.Fetching(0.42f), metered = false
+    )
+
+    // Arabic downloading, at 60 %.
+    private val rowsGetting = rows.map {
+        if (it.language.code == "ar") it.copy(status = DownloadStatus.Running(done = 60L, total = 100L)) else it
+    }
+
     // The screen with nothing wired: a tap does nothing, the pictures show the state.
     @Composable
-    private fun Models(speech: SpeechUi, networkAllowed: Boolean = true) =
+    private fun Models(speech: SpeechUi, networkAllowed: Boolean = true, rows: List<LanguageRow> = this.rows) =
         ModelsContent(speech = speech, rows = rows, networkAllowed = networkAllowed, focus = null, actions = ModelsActions())
 
     @Test
@@ -59,4 +70,8 @@ class ModelsScreenshotTest : ScreenshotBase() {
 
     @Test
     fun networkOff() = capture("models_network_off") { Models(todo, networkAllowed = false) }
+
+    // A running download, taken from this test's own cases above (https://github.com/213YaZ786/Language/blob/main/app/src/test/java/com/yaz/language/screenshot/ModelsScreenshotTest.kt#ModelsScreenshotTest)
+    @Test
+    fun fetching() = capture("models_fetching") { Models(fetching, rows = rowsGetting) }
 }

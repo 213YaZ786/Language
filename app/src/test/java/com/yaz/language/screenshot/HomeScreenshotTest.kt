@@ -6,6 +6,7 @@ import com.yaz.language.feature.home.GetItem
 import com.yaz.language.feature.home.Heard
 import com.yaz.language.feature.home.HomeContent
 import com.yaz.language.feature.home.TranslateUi
+import com.yaz.language.translate.DownloadStatus
 import com.yaz.language.translate.Language
 import com.yaz.language.translate.Script
 import org.junit.Test
@@ -68,6 +69,15 @@ class HomeScreenshotTest : ScreenshotBase() {
     fun networkOff() = capture("home_network_off") {
         Home(
             base.copy(detected = arabic, toGet = listOf(GetItem(arabic, 31_000_000L, null)), networkAllowed = false),
+            input = "مرحبا، كيف حالك؟"
+        )
+    }
+
+    // The Get state running, taken from the cases above (https://github.com/213YaZ786/Language/blob/main/app/src/test/java/com/yaz/language/screenshot/HomeScreenshotTest.kt#HomeScreenshotTest)
+    @Test
+    fun getting() = capture("home_getting") {
+        Home(
+            base.copy(detected = arabic, toGet = listOf(GetItem(arabic, 31_000_000L, DownloadStatus.Running(done = 42L, total = 100L)))),
             input = "مرحبا، كيف حالك؟"
         )
     }

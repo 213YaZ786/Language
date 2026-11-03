@@ -87,7 +87,7 @@ class HomeViewModel(context: Context, private val speech: VoiceSpeech) : ViewMod
                 return@launch
             }
             _heard.update { it.copy(phase = Phase.LISTENING, whisper = engine == Dictation.Engine.WHISPER) }
-            if (!dictation.start(engine, speech.language(), speech.model.file, listener)) {
+            if (!dictation.start(engine, speech.language(), speech.model.file, listener, shortContext = speech.model.pin.shortContext)) {
                 _heard.update { it.copy(phase = Phase.IDLE) }
             }
         }

@@ -32,6 +32,7 @@ import com.yaz.language.core.update.UpdateMode
 import com.yaz.language.core.update.Updates
 import com.yaz.language.data.settings.Settings
 import com.yaz.language.data.settings.SettingsStore
+import com.yaz.language.feature.welcome.rememberSetupTiles
 import com.yaz.language.navigation.LocalReadableInset
 import com.yaz.language.navigation.WidthClass
 import com.yaz.language.ui.component.ChoiceDialog
@@ -49,6 +50,7 @@ import com.yaz.language.ui.component.SettingsSwitchTile
 import com.yaz.language.ui.component.SettingsTile
 import com.yaz.language.ui.component.SettingsTileDialogs
 import com.yaz.language.ui.component.SettingsTileGrid
+import com.yaz.language.ui.component.leftText
 import com.yaz.language.ui.icon.AppIcons
 import org.koin.compose.koinInject
 
@@ -68,9 +70,12 @@ fun SettingsScreen(onBack: () -> Unit, onGuide: () -> Unit, onModels: () -> Unit
     val settings by store.settings.collectAsState()
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    // The guide's tile says how many steps are left, read from the system as the guide reads them.
+    val setup = rememberSetupTiles(onLanguages = onModels)
     SettingsContent(
         settings = settings,
         version = BuildConfig.VERSION_NAME,
+        guideValue = setup.leftText(),
         onBack = onBack,
         onGuide = onGuide,
         onModels = onModels,
@@ -102,7 +107,8 @@ internal fun SettingsContent(
     onModels: () -> Unit,
     onChange: ((Settings) -> Settings) -> Unit,
     onUpdates: (UpdateMode) -> Unit,
-    onOpen: (String) -> Unit
+    onOpen: (String) -> Unit,
+    guideValue: String = ""
 ) {
     var updatesOpen by rememberSaveable { mutableStateOf(false) }
     // The tile whose long press is open (its id), "" when none.
@@ -171,7 +177,7 @@ internal fun SettingsContent(
             // The same first tile in every app, as Dialer's "Guide" tile (YAZ/Dialer feature/settings/SettingsScreen.kt) and SMS's.
             SettingsActionTile(
                 id = "guide", name = stringResource(R.string.guide), title = stringResource(R.string.guide), icon = AppIcons.Play,
-                value = stringResource(R.string.guide_value), summary = stringResource(R.string.guide_summary), onClick = onGuide
+                value = guideValue.ifEmpty { stringResource(R.string.guide_value) }, summary = stringResource(R.string.guide_summary), onClick = onGuide
             ),
             SettingsActionTile(
                 id = "updates", name = stringResource(R.string.updates), title = stringResource(R.string.updates), icon = AppIcons.Update,

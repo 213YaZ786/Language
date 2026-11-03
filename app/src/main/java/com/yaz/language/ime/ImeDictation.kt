@@ -148,7 +148,7 @@ class ImeDictation(
             composing = false
             wrote = false
             _state.update { it.copy(heard = it.heard.copy(phase = Phase.LISTENING, whisper = engine == Dictation.Engine.WHISPER)) }
-            if (!dictation.start(engine, language, speech.model.file, this@ImeDictation, source = sound?.invoke(), silenceMs = silence, prompt = prompt)) {
+            if (!dictation.start(engine, language, speech.model.file, this@ImeDictation, source = sound?.invoke(), silenceMs = silence, prompt = prompt, shortContext = speech.model.pin.shortContext)) {
                 accepting = false
                 _state.update { it.copy(heard = it.heard.copy(phase = Phase.IDLE)) }
             }

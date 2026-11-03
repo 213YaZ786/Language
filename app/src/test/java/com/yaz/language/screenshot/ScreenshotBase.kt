@@ -64,7 +64,8 @@ abstract class ScreenshotBase {
                 compose.activity.setContent {
                     CompositionLocalProvider(LocalInspectionMode provides true) {
                         AppTheme(darkTheme = night, dynamicColor = false) {
-                            val look = rememberGlassLook(MaterialTheme.colorScheme, true)
+                            // The app's own look, quiet glass, as ui/theme/AppSurface.kt sets it.
+                            val look = rememberGlassLook(MaterialTheme.colorScheme, true, quiet = true)
                             CompositionLocalProvider(LocalGlass provides look, LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
                                 key(picture) {
                                     Box(Modifier.fillMaxSize().glassGround(look, MaterialTheme.colorScheme.background)) {

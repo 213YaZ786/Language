@@ -5,19 +5,21 @@ import android.text.format.Formatter
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
@@ -42,14 +44,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
@@ -62,16 +60,20 @@ import com.yaz.language.R
 import com.yaz.language.data.settings.SettingsStore
 import com.yaz.language.feature.common.rememberMicrophone
 import com.yaz.language.navigation.LocalReadableInset
+import com.yaz.language.navigation.WidthClass
 import com.yaz.language.translate.DownloadStatus
 import com.yaz.language.translate.Language
 import com.yaz.language.translate.inFlightProgress
 import com.yaz.language.translate.aidl.TranslateGuards
 import com.yaz.language.translate.localizedName
 import com.yaz.language.ui.component.BoldButton
+import com.yaz.language.ui.component.BoldIconButton
+import com.yaz.language.ui.component.ButtonGap
 import com.yaz.language.ui.component.ChoiceDialog
 import com.yaz.language.ui.component.FloatingAction
 import com.yaz.language.ui.component.FloatingFrame
 import com.yaz.language.ui.component.FloatingTop
+import com.yaz.language.ui.component.LinearWavyProgress
 import com.yaz.language.ui.component.LoadingMark
 import com.yaz.language.ui.component.QuietButton
 import com.yaz.language.ui.component.UpdatePrompt
@@ -282,10 +284,8 @@ internal fun HomeContent(
     onGet: () -> Unit,
     onCancel: () -> Unit
 ) {
-    val pageScroll = rememberScrollState()
     FloatingFrame(
         bottom = 0.dp,
-        scroll = pageScroll,
         top = {
             FloatingTop(
                 stringResource(R.string.app_name),
@@ -294,48 +294,94 @@ internal fun HomeContent(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(pageScroll)
-                .padding(horizontal = LocalReadableInset.current + 16.dp)
-        ) {
-            Spacer(Modifier.height(padding.calculateTopPadding()))
-            Spacer(Modifier.height(8.dp))
+        // MainScreen's arrangement: the language row on top, the cards in the room left under it (its Column with the
+        // weight(1f) box), the screen bottom and the keyboard lifting it all (imePadding, navigationBarsPadding).
+        // https://github.com/DavidVentura/offline-translator/blob/e7716c6859e3d90b8883c667c1a3cfeef407df08/app/src/main/java/dev/davidv/translator/ui/screens/MainScreen.kt#MainScreen
+        // Google Translate's new layout on a phone: the translation above, the input card at the bottom; on a wide window
+        // (600 dp and up) the two cards side by side at one height.
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val wide = WidthClass.of(maxWidth) != WidthClass.COMPACT
+            val inputMax = maxHeight * 0.45f
+            val blank = input.isBlank()
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = LocalReadableInset.current + 16.dp)
+            ) {
+                Spacer(Modifier.height(padding.calculateTopPadding()))
+                Spacer(Modifier.height(8.dp))
 
-            LanguageBar(ui = ui, onSource = onSource, onTarget = onTarget, onSwap = onSwap)
+                LanguageBar(ui = ui, onSource = onSource, onTarget = onTarget, onSwap = onSwap)
 
-            Spacer(Modifier.height(16.dp))
-            InputCard(
-                ui = ui,
-                input = input,
-                heard = heard,
-                clipped = clipped,
-                hasClipboardText = hasClipboardText,
-                onInput = onInput,
-                onPaste = onPaste,
-                onMic = onMic,
-                onClear = onClear,
-                onDetected = onDetected
-            )
-
-            if (input.isNotBlank()) {
                 Spacer(Modifier.height(16.dp))
-                ResultCard(
-                    ui = ui,
-                    speaking = speaking,
-                    noVoice = noVoice,
-                    onCopy = onCopy,
-                    onListen = onListen,
-                    onShare = onShare,
-                    onGet = onGet,
-                    onCancel = onCancel,
-                    onSettings = onSettings
-                )
+                if (wide) {
+                    Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        InputCard(
+                            ui = ui,
+                            input = input,
+                            heard = heard,
+                            clipped = clipped,
+                            hasClipboardText = hasClipboardText,
+                            onInput = onInput,
+                            onPaste = onPaste,
+                            onMic = onMic,
+                            onClear = onClear,
+                            onDetected = onDetected,
+                            fill = true,
+                            modifier = Modifier.weight(1f).fillMaxHeight()
+                        )
+                        ResultCard(
+                            ui = ui,
+                            blank = blank,
+                            speaking = speaking,
+                            noVoice = noVoice,
+                            onCopy = onCopy,
+                            onListen = onListen,
+                            onShare = onShare,
+                            onGet = onGet,
+                            onCancel = onCancel,
+                            onSettings = onSettings,
+                            modifier = Modifier.weight(1f).fillMaxHeight()
+                        )
+                    }
+                } else {
+                    if (blank) {
+                        Spacer(Modifier.weight(1f))
+                    } else {
+                        ResultCard(
+                            ui = ui,
+                            blank = false,
+                            speaking = speaking,
+                            noVoice = noVoice,
+                            onCopy = onCopy,
+                            onListen = onListen,
+                            onShare = onShare,
+                            onGet = onGet,
+                            onCancel = onCancel,
+                            onSettings = onSettings,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    InputCard(
+                        ui = ui,
+                        input = input,
+                        heard = heard,
+                        clipped = clipped,
+                        hasClipboardText = hasClipboardText,
+                        onInput = onInput,
+                        onPaste = onPaste,
+                        onMic = onMic,
+                        onClear = onClear,
+                        onDetected = onDetected,
+                        fill = false,
+                        modifier = Modifier.heightIn(max = inputMax)
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
             }
-
-            Spacer(Modifier.height(24.dp))
-            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
     }
 }
@@ -397,8 +443,11 @@ private fun LanguagePill(name: String, onClick: () -> Unit, modifier: Modifier) 
 }
 
 /**
- * The source card: the field, then the detected language when it is not the picked one, then Paste, the mic and Clear
- * across the width (offline-translator's InputSection puts Clear or Paste in its card; the mic is the dictation).
+ * The source card: the field, then the detected language when it is not the picked one, then one row, Paste and Clear
+ * at the start and the large Dictate button at the end, as Google Translate's input card has Paste on the left and the
+ * mic on the right inside the box (offline-translator's InputSection puts Clear or Paste in its card; the mic is the
+ * dictation). [fill]: the field takes the card's whole height (the wide window); else the card is as tall as its words,
+ * its field scrolling when the caller's maximum height is reached.
  */
 @Composable
 private fun InputCard(
@@ -411,25 +460,29 @@ private fun InputCard(
     onPaste: () -> Unit,
     onMic: () -> Unit,
     onClear: () -> Unit,
-    onDetected: () -> Unit
+    onDetected: () -> Unit,
+    fill: Boolean,
+    modifier: Modifier = Modifier
 ) {
     val listening = heard.phase == Phase.LISTENING
-    ZoneSurface(shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.fillMaxWidth()) {
+    ZoneSurface(shape = MaterialTheme.shapes.extraLarge, modifier = modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            BasicTextField(
-                value = input,
-                onValueChange = onInput,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
-                decorationBox = { field ->
-                    if (input.isEmpty()) {
-                        Text(stringResource(R.string.input_hint), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(Modifier.fillMaxWidth().weight(1f, fill = fill).verticalScroll(rememberScrollState())) {
+                BasicTextField(
+                    value = input,
+                    onValueChange = onInput,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = if (fill) 120.dp else 56.dp),
+                    decorationBox = { field ->
+                        if (input.isEmpty()) {
+                            Text(stringResource(R.string.input_hint), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        field()
                     }
-                    field()
-                }
-            )
+                )
+            }
             heard.note?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
             // The text was cut at the cap: said in the panel's words (process_clipped), under the field.
             if (clipped) {
@@ -455,14 +508,29 @@ private fun InputCard(
             val paste = stringResource(R.string.paste)
             val dictate = stringResource(if (listening) R.string.stop else R.string.dictate)
             val clear = stringResource(R.string.clear)
-            BalancedButtons(
-                listOf(
-                    ButtonSpec(paste, ICON_ROOM) { CardButton(AppIcons.Paste, paste, onPaste, it, enabled = hasClipboardText) },
-                    ButtonSpec(dictate, ICON_ROOM) { CardButton(if (listening) AppIcons.Stop else AppIcons.Mic, dictate, onMic, it) },
-                    ButtonSpec(clear, ICON_ROOM) { CardButton(AppIcons.Close, clear, onClear, it, enabled = input.isNotEmpty()) }
-                ),
-                Modifier.widthIn(max = 520.dp).align(Alignment.CenterHorizontally)
-            )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ButtonGap)) {
+                BoldIconButton(onClick = onPaste, enabled = hasClipboardText) { Icon(AppIcons.Paste, contentDescription = paste) }
+                if (input.isNotEmpty()) {
+                    BoldIconButton(onClick = onClear) { Icon(AppIcons.Close, contentDescription = clear) }
+                }
+                Spacer(Modifier.weight(1f))
+                // The large round Dictate button, 56 dp at least, washed with the accent (ZoneSurface's accent glass, the
+                // primary colour without glass), after Material 3's FilledIconButton: a round filled surface holding the
+                // icon in the content colour, its touch area not under 40 dp
+                // https://github.com/androidx/androidx/blob/androidx-main/compose/material3/material3/src/commonMain/kotlin/androidx/compose/material3/IconButton.kt#FilledIconButton
+                // The icon turns to Stop while it listens.
+                ZoneSurface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    accent = true,
+                    onClick = onMic,
+                    modifier = Modifier.sizeIn(minWidth = 56.dp, minHeight = 56.dp)
+                ) {
+                    Box(Modifier.sizeIn(minWidth = 56.dp, minHeight = 56.dp), contentAlignment = Alignment.Center) {
+                        Icon(if (listening) AppIcons.Stop else AppIcons.Mic, contentDescription = dictate, modifier = Modifier.size(28.dp))
+                    }
+                }
+            }
         }
     }
 }
@@ -475,6 +543,7 @@ private fun InputCard(
 @Composable
 private fun ResultCard(
     ui: TranslateUi,
+    blank: Boolean,
     speaking: Boolean,
     noVoice: Boolean,
     onCopy: () -> Unit,
@@ -482,41 +551,56 @@ private fun ResultCard(
     onShare: () -> Unit,
     onGet: () -> Unit,
     onCancel: () -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val target = ui.target
     val from = ui.from
     val output = ui.output
-    ZoneSurface(shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.fillMaxWidth()) {
+    // The card has the height its caller gives it (the room left on a phone, the row's height on a wide window): the
+    // target name on top, the answer in the middle scrolling when it is long (the scrolling output column of
+    // offline-translator's MainScreen), the round actions at the end.
+    // https://github.com/DavidVentura/offline-translator/blob/e7716c6859e3d90b8883c667c1a3cfeef407df08/app/src/main/java/dev/davidv/translator/ui/screens/MainScreen.kt#MainScreen
+    ZoneSurface(shape = MaterialTheme.shapes.extraLarge, modifier = modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             target?.let {
                 Text(it.localizedName(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
             }
-            when {
-                from == null -> Note(stringResource(R.string.choose_source))
-                ui.toGet.isNotEmpty() && target != null -> NeedBlock(ui, from, target, onGet, onCancel, onSettings)
-                ui.unavailable && target != null -> Note(stringResource(R.string.unavailable_pair, from.localizedName(), target.localizedName()))
-                output != null -> {
-                    SelectionContainer(Modifier.fillMaxWidth()) {
-                        Text(output, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.fillMaxWidth())
+            if (!blank) {
+                Column(
+                    Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    when {
+                        from == null -> Note(stringResource(R.string.choose_source))
+                        ui.toGet.isNotEmpty() && target != null -> NeedBlock(ui, from, target, onGet, onCancel, onSettings)
+                        ui.unavailable && target != null -> Note(stringResource(R.string.unavailable_pair, from.localizedName(), target.localizedName()))
+                        output != null -> {
+                            SelectionContainer(Modifier.fillMaxWidth()) {
+                                Text(output, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.fillMaxWidth())
+                            }
+                            if (noVoice && target != null) Note(stringResource(R.string.no_voice, target.localizedName()), error = true)
+                        }
+                        ui.error != null -> Note(stringResource(R.string.translate_failed), error = true)
+                        else -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            LoadingMark(size = 28.dp)
+                            Text(stringResource(R.string.translating), style = MaterialTheme.typography.bodyLarge)
+                        }
                     }
+                }
+                val showsOutput = from != null && ui.toGet.isEmpty() && !ui.unavailable && output != null
+                if (showsOutput) {
                     val copy = stringResource(R.string.copy)
                     val listen = stringResource(if (speaking) R.string.stop else R.string.listen)
                     val share = stringResource(R.string.share)
-                    BalancedButtons(
-                        listOf(
-                            ButtonSpec(copy, ICON_ROOM) { CardButton(AppIcons.Copy, copy, onCopy, it) },
-                            ButtonSpec(listen, ICON_ROOM) { CardButton(if (speaking) AppIcons.Stop else AppIcons.VolumeUp, listen, onListen, it) },
-                            ButtonSpec(share, ICON_ROOM) { CardButton(AppIcons.Share, share, onShare, it) }
-                        ),
-                        Modifier.widthIn(max = 520.dp)
-                    )
-                    if (noVoice && target != null) Note(stringResource(R.string.no_voice, target.localizedName()), error = true)
-                }
-                ui.error != null -> Note(stringResource(R.string.translate_failed), error = true)
-                else -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    LoadingMark(size = 28.dp)
-                    Text(stringResource(R.string.translating), style = MaterialTheme.typography.bodyLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(ButtonGap)) {
+                        BoldIconButton(onClick = onCopy) { Icon(AppIcons.Copy, contentDescription = copy) }
+                        BoldIconButton(onClick = onListen) {
+                            Icon(if (speaking) AppIcons.Stop else AppIcons.VolumeUp, contentDescription = listen)
+                        }
+                        BoldIconButton(onClick = onShare) { Icon(AppIcons.Share, contentDescription = share) }
+                    }
                 }
             }
         }
@@ -557,10 +641,10 @@ private fun NeedBlock(
     when {
         running.isNotEmpty() -> {
             val progress = running.average().toFloat()
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                LoadingMark(size = 28.dp, progress = progress)
-                Text(stringResource(R.string.getting_percent, (progress * 100).toInt()), style = MaterialTheme.typography.bodyLarge)
-            }
+            // The download drawn as Material 3 Expressive's wavy line across the card, through this app's port of it
+            // https://github.com/androidx/androidx/blob/androidx-main/compose/material3/material3/src/commonMain/kotlin/androidx/compose/material3/WavyProgressIndicator.kt#LinearWavyProgressIndicator
+            LinearWavyProgress(progress = { progress }, modifier = Modifier.fillMaxWidth())
+            Text(stringResource(R.string.getting_percent, (progress * 100).toInt()), style = MaterialTheme.typography.bodyLarge)
             QuietButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
         }
         !ui.networkAllowed -> {
@@ -574,18 +658,5 @@ private fun NeedBlock(
                 Text(if (failed) stringResource(R.string.retry) else stringResource(R.string.get_size, total), textAlign = TextAlign.Center)
             }
         }
-    }
-}
-
-/** The room an icon and its gap take inside a button of [BalancedButtons]. */
-private val ICON_ROOM = 26.dp
-
-/** A button of the cards: its icon, then its label at the group's size. */
-@Composable
-private fun CardButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier, enabled: Boolean = true) {
-    BoldButton(onClick = onClick, enabled = enabled, modifier = modifier.semantics { contentDescription = label; role = Role.Button }) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.size(8.dp))
-        GroupLabel(label)
     }
 }

@@ -95,6 +95,7 @@ class TranscribeViewModel(context: Context, private val speech: VoiceSpeech) : V
                 source = source,
                 timings = true,
                 stopOnSilence = false,
+                shortContext = speech.model.pin.shortContext,
             )
             if (!ok) {
                 source.release()

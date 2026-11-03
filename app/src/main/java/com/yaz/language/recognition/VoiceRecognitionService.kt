@@ -169,6 +169,7 @@ class VoiceRecognitionService : RecognitionService() {
                 prompt = Extras.prompt(intent),
                 timings = timed && engine == Dictation.Engine.WHISPER,
                 stopOnSilence = !(endsWithAudio && stream != null),
+                shortContext = speech.model.pin.shortContext,
             )
             if (!started) fail(SpeechRecognizer.ERROR_RECOGNIZER_BUSY)
         }

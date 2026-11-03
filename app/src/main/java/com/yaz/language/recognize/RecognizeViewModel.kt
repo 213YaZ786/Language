@@ -113,6 +113,7 @@ class RecognizeViewModel(context: Context, private val speech: VoiceSpeech) : Vi
                 source = asked.sound?.invoke(),
                 silenceMs = asked.silenceMs,
                 prompt = asked.prompt,
+                shortContext = speech.model.pin.shortContext,
             )
             if (!started) _heard.update { it.copy(phase = Phase.IDLE) }
         }

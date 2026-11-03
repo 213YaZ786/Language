@@ -14,6 +14,7 @@ import com.yaz.language.translate.TranslationResult
 import com.yaz.language.translate.languageNameComparator
 import com.yaz.language.translate.localizedName
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -22,7 +23,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -137,6 +140,30 @@ class TranslateViewModel(
         // TranslationSession collects languageState the same way).
         viewModelScope.launch {
             states.languageState.drop(1).collect { if (core.value.input.isNotBlank()) run(pause = false) }
+        }
+
+        // The model of a pair that can translate is loaded as soon as the pair is known, so the first result does not
+        // wait for it: offline-translator's TranslationSession (the end of init), where the ready selections are
+        // mapped to their pair, distinctUntilChanged, and each new pair preloaded. A selection is ready here when both
+        // ends are known and installed (the pick or what was detected, and the target). Off the main thread
+        // (TranslationService.preloadModel runs on IO); a failure is ignored, the translation loads the model itself.
+        viewModelScope.launch {
+            combine(core, states.languageState) { c, _ ->
+                val from = c.source ?: c.detection?.language
+                val to = c.target
+                if (from != null && to != null && from != to && states.canTranslate(from, to)) Pair(from, to) else null
+            }
+                .flowOn(Dispatchers.Default)
+                .filterNotNull()
+                .distinctUntilChanged()
+                .collect { (from, to) ->
+                    try {
+                        coordinator.preloadModel(from, to)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (ignored: Exception) {
+                    }
+                }
         }
     }
 

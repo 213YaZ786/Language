@@ -1,12 +1,18 @@
+/*
+ * The welcome guide as tiles, after FlorisBoard's SetupScreen: every step is read from the system (what is enabled,
+ * selected, allowed) and shown done or not, the tiles are Modules' SetupTiles.
+ *
+ * Copyright (C) 2021-2025 The FlorisBoard Contributors, Apache License 2.0
+ * (http://www.apache.org/licenses/LICENSE-2.0), translated from
+ * https://github.com/florisboard/florisboard/blob/main/app/src/main/kotlin/dev/patrickgold/florisboard/app/setup/SetupScreen.kt
+ */
 package com.yaz.language.feature.welcome
 
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,18 +26,18 @@ import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -45,30 +51,39 @@ import com.yaz.language.feature.common.isVoiceKeyboardEnabled
 import com.yaz.language.feature.common.openKeyboardSettings
 import com.yaz.language.feature.common.openVoiceInputSettings
 import com.yaz.language.feature.common.rememberMicrophone
+import com.yaz.language.translate.LanguageStateManager
+import com.yaz.language.translate.localizedName
 import com.yaz.language.ui.component.BoldButton
 import com.yaz.language.ui.component.LoadingMark
-import com.yaz.language.ui.component.QuietButton
-import com.yaz.language.ui.component.rememberHaptics
+import com.yaz.language.ui.component.SetupTile
+import com.yaz.language.ui.component.SetupTileDialog
+import com.yaz.language.ui.component.SetupTileGrid
+import com.yaz.language.ui.component.leftText
+import com.yaz.language.ui.component.requiredDone
+import com.yaz.language.ui.component.requiredLeft
 import com.yaz.language.ui.icon.AppIcons
 import org.koin.compose.koinInject
 
 /**
- * The one page shown at the first launch: the few choices worth making, the best one already set; each zone turns
- * into a tick once done. Copied from Calculator's WelcomeScreen
- * https://github.com/213YaZ786/Calculator/blob/main/app/src/main/java/com/yaz/calculator/feature/main/WelcomeScreen.kt
- * with SMS's speech step (the model for this phone chosen, fetched on a tap, its progress shown)
- * https://github.com/213YaZ786/SMS/blob/main/app/src/main/java/com/yaz/sms/feature/main/WelcomeScreen.kt
- * Steps: the microphone, the engine, Language as the phone's voice input, the voice keyboard (optional), automatic updates.
+ * The few choices worth making, the best one already set, as tiles: each is read from the system again each time the
+ * screen comes back (SetupScreen reads isFlorisBoardEnabled, isFlorisBoardSelected and hasNotificationPermission,
+ * and sets the current step from them), and turns done by itself. [onLanguages] opens the Models screen.
+ * Ported from WelcomeScreen of SMS (the model for this phone chosen, fetched on a tap, its progress shown; our own
+ * app, from which this screen was copied)
+ * https://github.com/213YaZ786/SMS/blob/main/app/src/main/java/com/yaz/sms/feature/main/WelcomeScreen.kt#WelcomeScreen
+ * Steps: the microphone, the engine, Language as the phone's voice input (these three required), the voice keyboard,
+ * the languages, automatic updates.
  */
 @Composable
-fun WelcomeScreen(onStart: () -> Unit) {
+fun rememberSetupTiles(onLanguages: () -> Unit): List<SetupTile> {
     val context = LocalContext.current
     val speech: VoiceSpeech = koinInject()
+    val states: LanguageStateManager = koinInject()
     val model = speech.model
-    val haptics = rememberHaptics()
     val mic = rememberMicrophone()
     val state by model.state.collectAsState()
     @Suppress("UNUSED_VARIABLE") val system by model.system.collectAsState()
+    val available by states.languageState.collectAsState()
     var checks by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) {
         checks++
@@ -76,94 +91,161 @@ fun WelcomeScreen(onStart: () -> Unit) {
         onPauseOrDispose { }
     }
     val metered = remember { model.metered() }
-    val voiceInput = remember(checks) { isPhoneVoiceInput(context) }
-    val voiceKeyboard = remember(checks) { isVoiceKeyboardEnabled(context) }
+    val isVoiceInput = remember(checks) { isPhoneVoiceInput(context) }
+    val isVoiceKeyboard = remember(checks) { isVoiceKeyboardEnabled(context) }
     val canInstall = remember(checks) { Updates.canInstall(context) }
-    val notifying = remember(checks) {
+    val hasNotificationPermission = remember(checks) {
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { checks++ }
+    val requestNotification = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { checks++ }
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)
-    ) {
-        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-        Spacer(Modifier.height(40.dp))
-        LoadingMark(size = 140.dp, running = false)
-        Spacer(Modifier.height(20.dp))
-        // Every title in the accent (the user, 2026-10-31), as Modules' SettingsSectionTitle.
-        Text("Welcome to Language", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(32.dp))
+    // The phone's recognizer when it has the language, else the model for this phone, already chosen.
+    val engine = if (model.usesSystem) "This phone's recognizer" else "Whisper ${model.pin.label}, ${model.pin.bytes / 1_000_000} MB"
+    // Every language with a model in, English apart (it needs none).
+    val installed = available.availableLanguages
+        .filter { !it.language.isEnglish && it.availability.translatorFiles }
+        .map { it.language.localizedName() }
 
-        WelcomeZone(AppIcons.Mic, "Microphone", done = mic.granted) {
-            if (!mic.granted) BoldButton(onClick = { haptics.tick(); mic.request() }) {
-                Text(if (mic.refusedForGood) "Open settings" else "Allow the microphone")
+    return listOf(
+        SetupTile(
+            id = "microphone", name = "Microphone", title = "Microphone", icon = AppIcons.Mic,
+            state = when {
+                mic.granted -> "Allowed"
+                mic.refusedForGood -> "Refused, open settings"
+                else -> "Not allowed"
+            },
+            summary = "Language listens only while you dictate or translate by voice, and Android shows the microphone light then. Tap to allow it" +
+                if (mic.refusedForGood) "; it was refused, so Android's settings page for Language opens." else ".",
+            done = mic.granted, required = true, error = mic.refusedForGood,
+            onClick = mic.request
+        ),
+        when (val s = state) {
+            is SpeechModel.State.Fetching -> SetupTile(
+                id = "engine", name = "Speech engine", title = "Speech engine", icon = AppIcons.Memory,
+                state = "${(s.done * 100).toInt()} %",
+                summary = "$engine is being fetched, once. A tap stops it.",
+                done = false, required = true, progress = s.done,
+                onClick = { model.cancel() }
+            )
+            SpeechModel.State.Failed -> SetupTile(
+                id = "engine", name = "Speech engine", title = "Speech engine", icon = AppIcons.Memory,
+                state = "Could not get it, tap to retry",
+                summary = "$engine could not be fetched. Check the connection, then tap to try again.",
+                done = false, required = true, error = true,
+                onClick = { model.fetch() }
+            )
+            SpeechModel.State.Missing, SpeechModel.State.Ready -> SetupTile(
+                id = "engine", name = "Speech engine", title = "Speech engine", icon = AppIcons.Memory,
+                state = if (s == SpeechModel.State.Missing && metered) "$engine\nOn mobile data" else engine,
+                summary = "$engine turns your voice into text on the phone, with no connection once it is here. " +
+                    if (s == SpeechModel.State.Ready) "It is ready." else "Tap to fetch it, once.",
+                done = s == SpeechModel.State.Ready, required = true,
+                onClick = { if (s == SpeechModel.State.Missing) model.fetch() }
+            )
+        },
+        SetupTile(
+            id = "voiceInput", name = "Voice input", title = "Voice input", icon = AppIcons.GraphicEq,
+            state = if (isVoiceInput) "Language" else "Not chosen",
+            summary = "Apps that ask Android for voice input are heard by Language. Tap to choose Language in Android's settings.",
+            done = isVoiceInput, required = true,
+            onClick = { openVoiceInputSettings(context) }
+        ),
+        SetupTile(
+            id = "voiceKeyboard", name = "Voice keyboard", title = "Voice keyboard", icon = AppIcons.Keyboard,
+            state = if (isVoiceKeyboard) "On" else "Off",
+            summary = "A keyboard with a microphone, to dictate into any field. Tap to turn it on in Android's keyboard settings.",
+            done = isVoiceKeyboard, required = false,
+            onClick = { openKeyboardSettings(context) }
+        ),
+        SetupTile(
+            id = "languages", name = "Languages", title = "Languages", icon = AppIcons.Translate,
+            state = installed.joinToString(", ").ifEmpty { "None yet" },
+            summary = "The languages Language translates, each fetched once and kept on the phone. " +
+                (if (installed.isEmpty()) "None yet. " else "In: ${installed.joinToString(", ")}. ") + "Tap to add more.",
+            done = installed.isNotEmpty(), required = false,
+            onClick = onLanguages
+        ),
+        SetupTile(
+            id = "updates", name = "Updates", title = "Updates", icon = AppIcons.Update,
+            state = when {
+                !hasNotificationPermission -> "Notifications off"
+                !canInstall -> "Installs not allowed"
+                else -> "Allowed"
+            },
+            summary = "Language can tell you of a new version and install it for you. It needs notifications and Android's leave to install. Tap to allow the one missing.",
+            done = hasNotificationPermission && canInstall, required = false,
+            onClick = {
+                if (!hasNotificationPermission) requestNotification.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else if (!canInstall) Updates.allowInstalls(context)
             }
-        }
-        Spacer(Modifier.height(16.dp))
-        // The phone's recognizer when it has the language, else the model for this phone, already chosen.
-        // Parts joined with a comma, as AOSP Dialer's CallLogEntryText.java (https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calllogutils/CallLogEntryText.java).
-        val name = if (model.usesSystem) "This phone's recognizer" else "Whisper ${model.pin.label}, ${model.pin.bytes / 1_000_000} MB"
-        WelcomeZone(AppIcons.Memory, "Engine", done = state == SpeechModel.State.Ready) {
-            Text(name, style = MaterialTheme.typography.bodyLarge)
-            when (val s = state) {
-                is SpeechModel.State.Fetching -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    LoadingMark(size = 28.dp, progress = s.done)
-                    Text("${(s.done * 100).toInt()}%", modifier = Modifier.weight(1f))
-                    QuietButton(onClick = { haptics.tick(); model.cancel() }) { Text("Stop") }
-                }
-                SpeechModel.State.Missing, SpeechModel.State.Failed -> {
-                    if (s == SpeechModel.State.Failed || metered) {
-                        Text(
-                            if (s == SpeechModel.State.Failed) "Could not get it" else "On mobile data",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    BoldButton(onClick = { haptics.done(); model.fetch() }) {
-                        Text(if (s == SpeechModel.State.Failed) "Retry" else "Download")
-                    }
-                }
-                SpeechModel.State.Ready -> Unit
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        WelcomeZone(AppIcons.Keyboard, "Voice input", done = voiceInput) {
-            if (!voiceInput) BoldButton(onClick = { haptics.tick(); openVoiceInputSettings(context) }) { Text("Choose Language") }
-        }
-        Spacer(Modifier.height(16.dp))
-        WelcomeZone(AppIcons.Keyboard, "Voice keyboard (optional)", done = voiceKeyboard) {
-            if (!voiceKeyboard) BoldButton(onClick = { haptics.tick(); openKeyboardSettings(context) }) { Text("Activate") }
-        }
-        Spacer(Modifier.height(16.dp))
-        WelcomeZone(AppIcons.Update, "Automatic updates", done = canInstall && notifying) {
-            if (!notifying) BoldButton(onClick = { ask.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("Allow notifications") }
-            else if (!canInstall) BoldButton(onClick = { Updates.allowInstalls(context) }) { Text("Allow updates") }
-        }
+        )
+    )
+}
 
-        Spacer(Modifier.height(32.dp))
-        BoldButton(filled = true, onClick = onStart) { Text("Start") }
-        Spacer(Modifier.height(24.dp))
-        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+/**
+ * The guide: the logo, the title, how many steps are left, the tiles, then Start (Done when reopened from Settings),
+ * which waits for the required ones. Laid out as SetupScreen: header, steps, footer with the one button.
+ * Ported from SetupScreen#SetupScreen of
+ * https://github.com/florisboard/florisboard/blob/main/app/src/main/kotlin/dev/patrickgold/florisboard/app/setup/SetupScreen.kt
+ */
+@Composable
+fun WelcomeScreen(reopened: Boolean, onLanguages: () -> Unit, onStart: () -> Unit) {
+    val steps = rememberSetupTiles(onLanguages)
+    // The tile whose long press is open (its id), "" when none.
+    var explained by rememberSaveable { mutableStateOf("") }
+
+    WelcomeContent(steps, reopened, onStart) { explained = it.id }
+
+    steps.firstOrNull { it.id == explained }?.let { tile ->
+        SetupTileDialog(tile, onDismiss = { explained = "" })
     }
 }
 
 /**
- * One thing to settle, a tick once done. Copied from Calculator's WelcomeZone (same file as WelcomeScreen).
- * No zone on what is not tapped (the user, 2026-10-31), as EmptyZone and Element X's NotificationsOptInView
- * https://github.com/element-hq/element-x-android/blob/develop/features/ftue/impl/src/main/kotlin/io/element/android/features/ftue/impl/notifications/NotificationsOptInView.kt
+ * What the guide draws from the tiles it is given: the layout of SetupScreen (header, steps, footer with the one
+ * button), split from [WelcomeScreen] as HomeScreen is from HomeContent, so that a picture can be taken with fixed
+ * tiles, without the system checks. Ported from
+ * https://github.com/florisboard/florisboard/blob/main/app/src/main/kotlin/dev/patrickgold/florisboard/app/setup/SetupScreen.kt#SetupScreen
+ * and split as
+ * https://github.com/213YaZ786/Language/blob/main/app/src/main/java/com/yaz/language/feature/home/HomeScreen.kt#HomeContent
  */
 @Composable
-private fun WelcomeZone(icon: ImageVector, title: String, done: Boolean, content: @Composable () -> Unit) {
+internal fun WelcomeContent(tiles: List<SetupTile>, reopened: Boolean, onStart: () -> Unit, onExplain: (SetupTile) -> Unit = {}) {
+    val steps = tiles
     Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 22.dp, vertical = 20.dp)
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (done) AppIcons.CheckCircle else icon, contentDescription = if (done) "Done" else null, tint = MaterialTheme.colorScheme.primary)
-            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 12.dp))
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth().padding(horizontal = 8.dp)
+        ) {
+            Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+            Spacer(Modifier.height(40.dp))
+            LoadingMark(size = 120.dp, running = false)
+            Spacer(Modifier.height(20.dp))
+            // Every title in the accent (the user, 2026-10-31), as Modules' SettingsSectionTitle.
+            Text("Welcome to Language", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(8.dp))
+            Text(steps.leftText(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(24.dp))
+            SetupTileGrid(steps, onExplain)
+
+            Spacer(Modifier.height(32.dp))
+            val ready = steps.requiredDone()
+            BoldButton(filled = true, enabled = ready, onClick = onStart) { Text(if (reopened) "Done" else "Start") }
+            if (!ready) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Still needed: " + steps.requiredLeft().joinToString(", ") { it.name },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
-        content()
     }
 }

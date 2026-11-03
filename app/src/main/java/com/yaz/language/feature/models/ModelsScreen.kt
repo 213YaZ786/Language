@@ -35,7 +35,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -65,7 +64,7 @@ import com.yaz.language.ui.component.FloatingAction
 import com.yaz.language.ui.component.FloatingFrame
 import com.yaz.language.ui.component.FloatingTop
 import com.yaz.language.ui.component.GlassRadio
-import com.yaz.language.ui.component.LoadingMark
+import com.yaz.language.ui.component.LinearWavyProgress
 import com.yaz.language.ui.component.QuietButton
 import com.yaz.language.ui.component.ZoneSurface
 import com.yaz.language.ui.component.rememberHaptics
@@ -311,8 +310,10 @@ private fun EngineChoices(speech: SpeechUi, networkAllowed: Boolean, actions: Mo
         ListItem(
             headlineContent = {
                 when (state) {
-                    is SpeechModel.State.Fetching -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        LoadingMark(size = 28.dp, progress = state.done)
+                    // The fetch drawn as Material 3 Expressive's wavy line, through this app's port of it
+                    // https://github.com/androidx/androidx/blob/androidx-main/compose/material3/material3/src/commonMain/kotlin/androidx/compose/material3/WavyProgressIndicator.kt#LinearWavyProgressIndicator
+                    is SpeechModel.State.Fetching -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LinearWavyProgress(progress = { state.done }, modifier = Modifier.fillMaxWidth())
                         Text(stringResource(R.string.getting_percent, (state.done * 100).toInt()))
                     }
                     SpeechModel.State.Ready -> Text(stringResource(R.string.on_the_phone))
@@ -397,14 +398,17 @@ private fun LanguageRowView(
                 !networkAllowed -> stringResource(R.string.network_off_row)
                 else -> size
             }
-            Text(summary, color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+            // A language pack's download drawn as Material 3 Expressive's wavy line across the row, through this app's
+            // port of it, the percentage above it
+            // https://github.com/androidx/androidx/blob/androidx-main/compose/material3/material3/src/commonMain/kotlin/androidx/compose/material3/WavyProgressIndicator.kt#LinearWavyProgressIndicator
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(summary, color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                if (progress != null && !english) LinearWavyProgress(progress = { progress }, modifier = Modifier.fillMaxWidth())
+            }
         },
         trailingContent = if (english) null else ({
             when {
-                progress != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LoadingMark(size = 24.dp, progress = progress)
-                    QuietButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
-                }
+                progress != null -> QuietButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
                 row.installed -> QuietButton(onClick = onDelete) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
                 else -> BoldButton(onClick = onGet) {
                     Text(stringResource(if (failed) R.string.retry else if (networkAllowed) R.string.get else R.string.settings))

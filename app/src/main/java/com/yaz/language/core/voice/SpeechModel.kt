@@ -23,9 +23,9 @@ interface SpeechChoice {
 }
 
 /**
- * The speech model whisper.cpp reads: OpenAI's Whisper (MIT), as published
- * for whisper.cpp by its author. Not in the app: fetched once, only when
- * the user asks, from a pinned revision, and kept only when its SHA-256 is
+ * The speech model whisper.cpp reads: OpenAI's Whisper (MIT) fine-tuned by FUTO for a short audio context (ACFT,
+ * https://github.com/futo-org/whisper-acft, MIT), q8_0. Not in the app: fetched once, only when
+ * the user asks, and kept only when its SHA-256 is
  * the one written here. A newer model comes with an update of the app,
  * which then offers it and lets the old one go.
  * From SMS's core/voice/SpeechModel.kt; the app gives it the place its choice is kept ([choice]), the language its
@@ -39,10 +39,19 @@ class SpeechModel(
     private val allowed: () -> Boolean = { true },
 ) {
 
-    /** One model the app knows, pinned. */
-    data class Pin(val name: String, val label: String, val quality: String, val bytes: Long, val sha256: String) {
-        val url get() = "https://huggingface.co/ggerganov/whisper.cpp/resolve/$REVISION/$name"
-    }
+    /**
+     * One model the app knows, pinned. [shortContext]: the model was tuned to read only the length of the sound
+     * (whisper-acft), so whisper is given an audio context sized to the phrase (Whisper.transcribe).
+     */
+    data class Pin(
+        val name: String,
+        val label: String,
+        val quality: String,
+        val bytes: Long,
+        val sha256: String,
+        val url: String,
+        val shortContext: Boolean,
+    )
 
     sealed interface State {
         data object Missing : State
@@ -104,7 +113,8 @@ class SpeechModel(
     init {
         // Whether the phone hears its language itself, asked once.
         recheck()
-        // A model this version no longer knows (an update pinned another) and broken fetches go.
+        // A model this version no longer knows (the old ggml-base-q5_1.bin and ggml-small-q5_1.bin, an update pinned
+        // another) and broken fetches go.
         scope.launch(Dispatchers.IO) { dir.listFiles()?.filter { f -> PINS.none { it.name == f.name } }?.forEach { it.delete() } }
     }
 
@@ -161,7 +171,8 @@ class SpeechModel(
 
     /**
      * Opens [start] once it answers 200. HttpURLConnection never follows a redirect by itself: each hop is read and
-     * checked before it is taken (HTTPS, huggingface.co or its CDN *.hf.co, no user part, no other port, at most 5),
+     * checked before it is taken (HTTPS, voiceinput.futo.org or dl.voiceinput.futo.org, no user part, no other port,
+     * at most 5),
      * as the keyboard's dictionary download does (DictionaryRepo.open) and the update kit.
      * https://developer.android.com/reference/java/net/HttpURLConnection#setInstanceFollowRedirects(boolean)
      */
@@ -194,7 +205,7 @@ class SpeechModel(
     private fun trusted(url: URL): Boolean {
         val host = url.host.lowercase()
         return url.protocol == "https" && url.userInfo == null && (url.port == -1 || url.port == 443) &&
-            (host == "huggingface.co" || host.endsWith(".hf.co"))
+            (host == "voiceinput.futo.org" || host == "dl.voiceinput.futo.org")
     }
 
     fun cancel() {
@@ -210,10 +221,17 @@ class SpeechModel(
     }
 
     companion object {
-        /** The revision of ggerganov/whisper.cpp on Hugging Face the sums below belong to. */
-        const val REVISION = "5359861c739e955e79d9a303bcbc70fb988958b1"
-        val SMALL = Pin("ggml-small-q5_1.bin", "Small", "More accurate", 190_085_487, "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb")
-        val BASE = Pin("ggml-base-q5_1.bin", "Base", "Quicker", 59_707_625, "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898")
+        /** FUTO's ACFT models, README "Models" of https://github.com/futo-org/whisper-acft (the sums are the pinned files'). */
+        val SMALL = Pin(
+            "small_acft_q8_0.bin", "Small", "More accurate", 264_464_624,
+            "15ef255465a6dc582ecf1ec651a4618c7ee2c18c05570bbe46493d248d465ac4",
+            "https://voiceinput.futo.org/VoiceInput/small_acft_q8_0.bin", true,
+        )
+        val BASE = Pin(
+            "base_acft_q8_0.bin", "Base", "Quicker", 81_768_602,
+            "e44f352c9aa2c3609dece20c733c4ad4a75c28cd9ab07d005383df55fa96efc4",
+            "https://voiceinput.futo.org/VoiceInput/base_acft_q8_0.bin", true,
+        )
         val PINS = listOf(SMALL, BASE)
         const val SYSTEM = "system"
     }

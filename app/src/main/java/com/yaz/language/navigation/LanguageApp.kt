@@ -40,10 +40,21 @@ fun LanguageApp(request: ModelsRequest? = null, onHandled: () -> Unit = {}) {
 
     NavHost(nav, startDestination = if (settings.welcomed) Routes.HOME else Routes.WELCOME) {
         composable(Routes.WELCOME) {
-            WelcomeScreen(onStart = {
-                store.update { it.copy(welcomed = true) }
-                nav.navigate(Routes.HOME) { popUpTo(Routes.WELCOME) { inclusive = true } }
-            })
+            // Opened again from Settings once it was closed: the button reads Done and goes back. Read once on entry,
+            // since closing the first guide sets welcomed while the screen is still leaving.
+            val reopened = remember { settings.welcomed }
+            WelcomeScreen(
+                reopened = reopened,
+                onLanguages = { nav.navigate(Routes.MODELS) },
+                onStart = {
+                    if (reopened) {
+                        nav.popBackStack()
+                    } else {
+                        store.update { it.copy(welcomed = true) }
+                        nav.navigate(Routes.HOME) { popUpTo(Routes.WELCOME) { inclusive = true } }
+                    }
+                }
+            )
         }
         composable(Routes.HOME) {
             ReadableScroll {
@@ -68,8 +79,8 @@ fun LanguageApp(request: ModelsRequest? = null, onHandled: () -> Unit = {}) {
                 SettingsScreen(
                     onBack = { nav.popBackStack() },
                     onModels = { nav.navigate(Routes.MODELS) },
-                    // As Store's StoreApp.kt: the welcome route again, the home below it dropped (its end opens the home).
-                    onGuide = { nav.navigate(Routes.WELCOME) { popUpTo(Routes.HOME) { inclusive = true } } }
+                    // The guide on top of Settings; its Done pops back here.
+                    onGuide = { nav.navigate(Routes.WELCOME) }
                 )
             }
         }
