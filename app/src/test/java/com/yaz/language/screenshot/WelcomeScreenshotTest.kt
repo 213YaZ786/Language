@@ -34,9 +34,7 @@ class WelcomeScreenshotTest : ScreenshotBase() {
         tile("microphone", "Microphone", AppIcons.Mic, "Allowed", done = true, required = true),
         tile("engine", "Speech engine", AppIcons.Memory, "42 %", done = false, required = true, progress = 0.42f),
         tile("voiceInput", "Voice input", AppIcons.GraphicEq, "Not chosen", done = false, required = true),
-        tile("voiceKeyboard", "Voice keyboard", AppIcons.Keyboard, "Off", done = false, required = false),
-        tile("languages", "Languages", AppIcons.Translate, "French", done = true, required = false),
-        tile("updates", "Updates", AppIcons.Update, "Notifications off", done = false, required = false, error = true)
+        tile("languages", "Languages", AppIcons.Translate, "French", done = true, required = false)
     )
 
     // Everything done, the guide reopened from Settings.
@@ -44,9 +42,7 @@ class WelcomeScreenshotTest : ScreenshotBase() {
         tile("microphone", "Microphone", AppIcons.Mic, "Allowed", done = true, required = true),
         tile("engine", "Speech engine", AppIcons.Memory, "Whisper Base, 148 MB", done = true, required = true),
         tile("voiceInput", "Voice input", AppIcons.GraphicEq, "Language", done = true, required = true),
-        tile("voiceKeyboard", "Voice keyboard", AppIcons.Keyboard, "On", done = true, required = false),
-        tile("languages", "Languages", AppIcons.Translate, "French", done = true, required = false),
-        tile("updates", "Updates", AppIcons.Update, "Allowed", done = true, required = false)
+        tile("languages", "Languages", AppIcons.Translate, "French", done = true, required = false)
     )
 
     @Test

@@ -44,11 +44,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.yaz.language.core.VoiceSpeech
+import com.yaz.language.core.update.StoreLink
 import com.yaz.language.core.update.Updates
 import com.yaz.language.core.voice.SpeechModel
 import com.yaz.language.feature.common.isPhoneVoiceInput
-import com.yaz.language.feature.common.isVoiceKeyboardEnabled
-import com.yaz.language.feature.common.openKeyboardSettings
 import com.yaz.language.feature.common.openVoiceInputSettings
 import com.yaz.language.feature.common.rememberMicrophone
 import com.yaz.language.translate.LanguageStateManager
@@ -71,8 +70,10 @@ import org.koin.compose.koinInject
  * Ported from WelcomeScreen of SMS (the model for this phone chosen, fetched on a tap, its progress shown; our own
  * app, from which this screen was copied)
  * https://github.com/213YaZ786/SMS/blob/main/app/src/main/java/com/yaz/sms/feature/main/WelcomeScreen.kt#WelcomeScreen
- * Steps: the microphone, the engine, Language as the phone's voice input (these three required), the voice keyboard,
- * the languages, automatic updates.
+ * Steps, only the choices that matter (the user, 2026-11-06; the rest takes the best preset, never asked): the
+ * microphone, the engine, Language as the phone's voice input (these three required), the languages, and updates
+ * only when the app does not update through Store (SetupScreen shows a step only when it applies, as its
+ * notification step on API 33+). The voice keyboard stays on the Models screen, off by default.
  */
 @Composable
 fun rememberSetupTiles(onLanguages: () -> Unit): List<SetupTile> {
@@ -92,7 +93,8 @@ fun rememberSetupTiles(onLanguages: () -> Unit): List<SetupTile> {
     }
     val metered = remember { model.metered() }
     val isVoiceInput = remember(checks) { isPhoneVoiceInput(context) }
-    val isVoiceKeyboard = remember(checks) { isVoiceKeyboardEnabled(context) }
+    // When Store installs the app's updates, the guide asks nothing about them.
+    val viaStore = remember(checks) { StoreLink.viaStore(context) }
     val canInstall = remember(checks) { Updates.canInstall(context) }
     val hasNotificationPermission = remember(checks) {
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -106,7 +108,7 @@ fun rememberSetupTiles(onLanguages: () -> Unit): List<SetupTile> {
         .filter { !it.language.isEnglish && it.availability.translatorFiles }
         .map { it.language.localizedName() }
 
-    return listOf(
+    return listOfNotNull(
         SetupTile(
             id = "microphone", name = "Microphone", title = "Microphone", icon = AppIcons.Mic,
             state = when {
@@ -151,13 +153,6 @@ fun rememberSetupTiles(onLanguages: () -> Unit): List<SetupTile> {
             onClick = { openVoiceInputSettings(context) }
         ),
         SetupTile(
-            id = "voiceKeyboard", name = "Voice keyboard", title = "Voice keyboard", icon = AppIcons.Keyboard,
-            state = if (isVoiceKeyboard) "On" else "Off",
-            summary = "A keyboard with a microphone, to dictate into any field. Tap to turn it on in Android's keyboard settings.",
-            done = isVoiceKeyboard, required = false,
-            onClick = { openKeyboardSettings(context) }
-        ),
-        SetupTile(
             id = "languages", name = "Languages", title = "Languages", icon = AppIcons.Translate,
             state = installed.joinToString(", ").ifEmpty { "None yet" },
             summary = "The languages Language translates, each fetched once and kept on the phone. " +
@@ -165,7 +160,7 @@ fun rememberSetupTiles(onLanguages: () -> Unit): List<SetupTile> {
             done = installed.isNotEmpty(), required = false,
             onClick = onLanguages
         ),
-        SetupTile(
+        if (!viaStore) SetupTile(
             id = "updates", name = "Updates", title = "Updates", icon = AppIcons.Update,
             state = when {
                 !hasNotificationPermission -> "Notifications off"
@@ -178,7 +173,7 @@ fun rememberSetupTiles(onLanguages: () -> Unit): List<SetupTile> {
                 if (!hasNotificationPermission) requestNotification.launch(Manifest.permission.POST_NOTIFICATIONS)
                 else if (!canInstall) Updates.allowInstalls(context)
             }
-        )
+        ) else null
     )
 }
 
